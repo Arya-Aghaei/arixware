@@ -1,0 +1,5 @@
+dependencies:
+  waveshare/esp32_s3_touch_amoled_1_75: "^3.0.1"
+  waveshare/qmi8658: "^2.0.0"
+  espressif/button: "^4.2.3"
+  idf: ">=5.5"

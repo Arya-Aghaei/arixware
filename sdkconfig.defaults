@@ -1,0 +1,33 @@
+CONFIG_IDF_TARGET="esp32s3"
+
+# ESP32-S3R8: 16MB flash, 8MB octal PSRAM
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_LV_DEF_REFR_PERIOD=16
+
+# Smooth animation: -O2 for the software renderer, and a 1 ms tick so the LVGL task's 1..15 ms
+# waits aren't rounded to 0/10/20 ms (uneven frame pacing).
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+CONFIG_FREERTOS_HZ=1000
+
+# LVGL's builtin 64KB heap cannot hold transformed (rotated) layer buffers; use system malloc backed by PSRAM.
+CONFIG_LV_USE_CLIB_MALLOC=y
+CONFIG_LV_USE_QRCODE=y
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# Native boot animation, decoded into one RGB565 canvas.
+CONFIG_LV_USE_GIF=y
+CONFIG_LV_GIF_CACHE_DECODE_DATA=y
+
+# Secure automatic timezone lookup after Wi-Fi connects.
+CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y

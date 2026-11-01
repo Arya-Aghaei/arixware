@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Arixware Wi-Fi setup</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#17120e;color:#fff4df;font:16px/1.5 system-ui,sans-serif}main{max-width:480px;margin:0 auto;padding:32px 22px 40px}.brand{font-size:13px;font-weight:650;letter-spacing:.08em;color:#bfae9c}h1{font-size:30px;line-height:1.2;letter-spacing:-.8px;margin:24px 0 8px}p{margin:0 0 24px;color:#bfae9c}h2{font-size:15px;margin:0}section{margin:28px 0}.list-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}button,input{font:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:wait}.refresh{border:0;background:none;color:#ffd49b;padding:8px 0 8px 16px;font-size:14px}.networks{border:1px solid #513925;border-radius:14px;overflow:hidden;background:#21180f;max-height:320px;overflow-y:auto}.network{display:flex;align-items:center;justify-content:space-between;gap:16px;text-align:left;width:100%;border:0;border-bottom:1px solid #3c2b1e;background:#21180f;padding:16px;color:#fff4df}.network:last-child{border-bottom:0}.network[aria-pressed="true"]{background:#382514;box-shadow:inset 3px 0 #ffad52}.network-name{overflow-wrap:anywhere;min-width:0;font-weight:550}.network-meta{flex-shrink:0;color:#c6af94;font-size:12px;white-space:pre-line;text-align:right}.empty{padding:20px;color:#c6af94;font-size:14px}label{display:block;margin-bottom:8px;font-size:14px;font-weight:550}input[type="text"],input[type="password"]{width:100%;border:1px solid #68492f;border-radius:10px;padding:13px;background:#21180f;color:#fff4df}input:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid #ffad52;outline-offset:3px}.check{display:flex;gap:8px;align-items:center;font-weight:400;margin-top:12px;color:#bfae9c}.check input{width:16px;height:16px;accent-color:#ffad52}details{margin:18px 0 24px}summary{font-size:14px;color:#ffd49b;cursor:pointer}details label{margin-top:16px}.selection{font-size:14px;color:#ffd49b;margin:0 0 20px;overflow-wrap:anywhere}.connect{width:100%;padding:14px;border:0;border-radius:10px;background:#ffa24b;color:#281606;font-weight:600;margin-top:24px}.status{margin-top:20px;color:#bfae9c;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere;padding:12px 14px;border-radius:10px;border:1px solid #3c2b1e;background:#1a140e}.status.working{background:#261c14;border-color:#ffad52;color:#ffd49b}.status.working:before{content:"";display:inline-block;width:13px;height:13px;border:2px solid #513925;border-top-color:#ffad52;border-radius:50%;margin-right:8px;vertical-align:-2px;animation:spin 1s linear infinite}.status.done{background:#162415;border-color:#488b43;color:#d5f5cc}.status.done:before{content:"✓ ";font-weight:700;color:#7ee774;margin-right:4px}.status.error{background:#2b1414;border-color:#993d3d;color:#ffd0cc}.status.error:before{content:"⚠ ";font-weight:700;color:#ff6e6e;margin-right:4px}@keyframes spin{to{transform:rotate(360deg)}}footer{border-top:1px solid #513925;padding-top:20px;margin-top:28px;color:#aa927b;font-size:12px}footer a{color:inherit}
+</style>
+</head>
+<body><main>
+<header><div class="brand">ARIXWARE</div><h1>Connect to Wi-Fi</h1><p>Choose the 2.4 GHz network your buddy should use.</p></header>
+<form id="setup">
+<label for="owner">Your name</label><input id="owner" name="owner_name" type="text" required maxlength="64" autocomplete="name" placeholder="Who does this buddy belong to?">
+<section aria-labelledby="network-heading">
+<div class="list-heading"><h2 id="network-heading">Nearby networks</h2><button type="button" id="scan" class="refresh">Refresh</button></div>
+<div id="networks" class="networks" role="group" aria-label="Nearby Wi-Fi networks"><div class="empty">Looking for networks…</div></div>
+</section>
+<p id="selection" class="selection" aria-live="polite">Select a network above.</p>
+<details><summary>Other or hidden network</summary><label for="ssid">Network name</label><input id="ssid" name="ssid" type="text" autocomplete="off" placeholder="Enter the exact network name"></details>
+<label for="pass">Password</label><input id="pass" name="pass" type="password" autocomplete="new-password" placeholder="Leave blank for an open network">
+<label class="check"><input type="checkbox" id="show">Show password</label>
+<button id="connect" class="connect" type="submit">Connect</button>
+</form>
+<div id="status" class="status" role="status" aria-live="polite">Keep your phone connected to the setup Wi-Fi.</div>
+<footer>Network settings stay on your buddy. If you leave this page, reopen <a href="http://192.168.4.1/">192.168.4.1</a> while connected to its setup Wi-Fi.</footer>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let connecting = false, scanning = false, networkButtons = [], scanTimer = null, statusTimer = null, pollFailures = 0;
+function message(text, ok = false, isError = false) {
+  const el = $('status');
+  el.textContent = text;
+  if (ok || isError) el.classList.toggle('working', false);
+  el.classList.toggle('done', ok);
+  el.classList.toggle('error', isError);
+  if ((ok || isError) && typeof el.scrollIntoView === 'function') {
+    el.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  }
+}
+async function request(path, options) {
+  const response = await fetch(path, {cache: 'no-store', ...options});
+  if (!response.ok) throw Error(await response.text());
+  return response.json();
+}
+function busy(value) {
+  connecting = value;
+  ['connect', 'ssid', 'pass', 'owner'].forEach(id => $(id).disabled = value);
+  $('scan').disabled = value || scanning;
+  networkButtons.forEach(button => button.disabled = value);
+  $('status').classList.toggle('working', value);
+  if (value) {
+    $('status').classList.toggle('done', false);
+    $('status').classList.toggle('error', false);
+  }
+}
+function chooseNetwork(ssid) {
+  $('ssid').value = ssid;
+  $('pass').value = '';
+  $('selection').textContent = ssid ? 'Selected: ' + ssid : 'Select a network above.';
+  networkButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.ssid === ssid)));
+}
+$('show').onchange = () => {$('pass').type = $('show').checked ? 'text' : 'password'};
+$('ssid').oninput = () => {
+  $('selection').textContent = $('ssid').value ? 'Selected: ' + $('ssid').value : 'Select a network above.';
+  networkButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.ssid === $('ssid').value)));
+};
+function renderNetworks(networks) {
+  networkButtons = networks.map(network => {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'network'; button.dataset.ssid = network.ssid;
+    button.disabled = connecting;
+    button.setAttribute('aria-pressed', String($('ssid').value === network.ssid));
+    const name = document.createElement('span'); name.className = 'network-name'; name.textContent = network.ssid;
+    const meta = document.createElement('span'); meta.className = 'network-meta';
+    const signal = network.rssi >= -60 ? 'Strong signal' : network.rssi >= -75 ? 'Fair signal' : 'Weak signal';
+    meta.textContent = (network.secured ? 'Password required' : 'Open network') + '\n' + signal;
+    button.append(name, meta);
+    button.onclick = () => {chooseNetwork(network.ssid); $('pass').focus()};
+    return button;
+  });
+  $('networks').replaceChildren(...networkButtons);
+  if (!networkButtons.length) {
+    const empty = document.createElement('div'); empty.className = 'empty';
+    empty.textContent = 'No networks found. Refresh or enter a network name below.';
+    $('networks').append(empty);
+  }
+}
+async function readScan() {
+  try {
+    const scan = await request('/api/wifi/scan');
+    if (scan.scanning) {scanTimer = setTimeout(readScan, 1000); return}
+    scanning = false; $('scan').disabled = connecting; $('scan').textContent = 'Refresh';
+    renderNetworks(scan.networks);
+    if (scan.error) message(scan.error, false, true);
+  } catch (error) {
+    scanning = false; $('scan').disabled = connecting; $('scan').textContent = 'Refresh';
+    message(error.message, false, true);
+  }
+}
+$('scan').onclick = async () => {
+  clearTimeout(scanTimer); scanning = true; $('scan').disabled = true; $('scan').textContent = 'Scanning…';
+  try {await request('/api/wifi/scan', {method: 'POST'}); await readScan()}
+  catch (error) {scanning = false; $('scan').disabled = connecting; $('scan').textContent = 'Refresh'; message(error.message, false, true)}
+};
+async function readStatus(initial = false) {
+  try {
+    const status = await request('/api/status');
+    pollFailures = 0;
+    if (status.state === 'connected') {
+      if (initial && status.setup_active && !status.setup_complete) {
+        message(status.error || ('Currently connected to ' + status.ssid + '. Choose another network to change Wi-Fi.'), false, Boolean(status.error));
+        return false;
+      }
+      clearTimeout(statusTimer); busy(false); $('pass').value = '';
+      message(status.error || ('Connected to ' + status.ssid + '.\nYou can return to your usual Wi-Fi. Device address: ' + status.ip), !status.error, Boolean(status.error));
+      return true;
+    }
+    if (status.error) {
+      clearTimeout(statusTimer); busy(false);
+      message(status.error, false, true);
+      return false;
+    }
+    if (status.state === 'connecting') {
+      busy(true); message('Connecting to your network…');
+      statusTimer = setTimeout(readStatus, 1000);
+      return false;
+    }
+    if (connecting) {
+      clearTimeout(statusTimer); busy(false);
+      message('Connection failed. Check the password and 2.4 GHz network, then retry.', false, true);
+      return false;
+    }
+  } catch (error) {
+    if (connecting && ++pollFailures < 12) {
+      statusTimer = setTimeout(readStatus, 1000);
+      return false;
+    }
+    pollFailures = 0;
+    busy(false);
+    message('The setup connection was lost. Rejoin the setup Wi-Fi and reload, or check your buddy’s screen.', false, true);
+    return false;
+  }
+}
+$('setup').onsubmit = async event => {
+  event.preventDefault();
+  const ssid = $('ssid').value, pass = $('pass').value, owner_name = $('owner').value.trim();
+  const bytes = text => new TextEncoder().encode(text).length;
+  if (!owner_name || /[\x00-\x1f\x7f]/.test(owner_name)) {message('Please enter your name.', false, true); return}
+  if (bytes(owner_name) > 64) {message('Your name is too long. Please shorten it.', false, true); return}
+  $('owner').value = owner_name;
+  if (!bytes(ssid) || bytes(ssid) > 32 || bytes(pass) > 63 || (pass && bytes(pass) < 8)) {
+    message('Use a network name up to 32 bytes and a password of 8–63 bytes, or leave it blank for an open network.', false, true); return;
+  }
+  clearTimeout(scanTimer); clearTimeout(statusTimer); scanning = false; pollFailures = 0; busy(true); message('Connecting to your network…');
+  try {
+    await request('/api/wifi', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ssid, pass, owner_name})});
+    statusTimer = setTimeout(readStatus, 700);
+  } catch (error) {busy(false); message(error.message, false, true)}
+};
+request('/api/profile').then(profile => {
+  if (!$('owner').value) $('owner').value = profile.owner_name || '';
+}).catch(() => message('Could not load your saved name. Please enter it above.', false, true));
+readStatus(true).then(connected => {if (!connecting && !connected) $('scan').click()});
+</script>
+</body></html>

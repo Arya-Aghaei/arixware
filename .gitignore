@@ -1,0 +1,35 @@
+build/
+managed_components/
+sdkconfig
+sdkconfig.old
+sdkconfig.bak
+components/audio/include/mmap_generate_sounds.h
+components/images/include/mmap_generate_images.h
+.vscode/c_cpp_properties.json
+.vscode/settings.json
+
+# Local credentials, signing material, and device dumps
+.aws/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Local build products and machine-specific state
+build-*/
+cmake-build-*/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+*.elf
+*.bin
+*.map
+
+# Private source material excluded from public snapshots
+/private/
