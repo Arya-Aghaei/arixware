@@ -1,5 +1,6 @@
 #include "eyes_raster.h"
 #include <math.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
@@ -12,15 +13,15 @@
 
 #define ORB_FILL_TOP    0xFFF9E3 /* cream */
 #define ORB_FILL_MID    0xFFD460 /* warm yellow */
-#define ORB_FILL_BOTTOM 0xFF8814 /* saturated orange */
+#define ORB_FILL_BOTTOM 0xFF6A10 /* saturated orange */
 #define ORB_FILL_MID_T  0.45f
 #define ORB_RIM         0x4A1E06 /* dark brown band */
-#define ORB_RING        0xFFC25A /* thin bright outer ring */
+#define ORB_RING        0xFF9A2A /* thin orange outer ring */
 #define ORB_GLOW        0xFF7A0A /* soft outer bloom */
 #define ORB_DOT         0xFFF3CC /* halftone dots */
 #define ORB_DOT_OPA     0.5f
-#define ORB_RING_W      2.5f  /* bright ring, from the outer edge inward */
-#define ORB_RIM_W       5.5f  /* dark band inside the ring */
+#define ORB_RING_W      1.8f  /* bright ring, from the outer edge inward */
+#define ORB_RIM_W       3.8f  /* dark band inside the ring */
 #define ORB_GLOW_R      9.0f  /* bloom reach outside the edge */
 #define ORB_SHADOW_W    4.0f  /* inner shadow on the fill next to the rim */
 #define DOT_ROWS_MAX    24
@@ -75,6 +76,17 @@ typedef struct {
     bool mirror_x;                            /* shape is symmetric under x -> -x ... */
     float asym_x0, asym_x1;                   /* ... except for x in this range (glint) */
     float lid_slope;
+    float wor_r, wor_ys, wor_iys; /* worried: lobe radius from the open height, the blink flattening and 1/it */
+    float streak_centre, streak_half; /* highlight band: signed distance of its centre, half width */
+    float egg_ix, egg_iy;             /* egg: 1 / (per-axis scale) */
+    bool draft;                       /* shade in 2x2 blocks */
+    int32_t dstep;                    /* draft block size, 0 = 2 */
+    float arch_tilt;                  /* radians the arch is turned, outer end down */
+    /* Glass style, pixels about the eye centre. nose is +1 or -1 along x. */
+    float nose, g_rc, g_top0, g_top_s, g_top_b, g_bot0, g_bot_s, g_bot_b, g_xext;
+    float g_px, g_py, g_pr, g_lid, g_round, g_lidgap, g_tn, g_bn, g_stip, g_gx0, g_gx1, g_gy0, g_gy1;
+    float g_gl[12];
+    int8_t g_pkind;
 } geom_t;
 
 static rgb_t s_edge;
@@ -100,7 +112,7 @@ static uint16_t s_grad_dot_packed[GRAD_MAX][4]; /* same, under a fully covering 
 static uint16_t s_q2_lut[Q2_MAX];
 
 #define SPIRAL_ARMS  0.0f /* 0 = concentric rings, as the reference chart draws them */
-#define SPIRAL_HALF  0.22f /* stripe half width, in arm periods */
+#define SPIRAL_HALF  0.14f /* stripe half width, in arm periods */
 #define SPIRAL_OPA   0.85f
 #define SPIRAL_COLOR 0x6A2C08 /* dark amber stripes */
 static rgb_t s_spiral;
@@ -408,20 +420,58 @@ static float heart_sd(float x, float y)
     return fast_sqrtf(fminf(a, dx * dx + dy * dy)) * (x > y ? 1.0f : -1.0f);
 }
 
+/* Neon "closed eye": a thick curve, ends raised, drawn like a glowing tube. */
+static inline float sleep_half_stroke(float hw)
+{
+    return fmaxf(3.0f, 0.065f * hw + 1.5f);
+}
+
+static inline float sleep_sag(float hw)
+{
+    return 0.2f * hw;
+}
+
 static void setup_reference(geom_t *g, const eyes_raster_pose_t *p)
 {
     eyes_raster_pose_t body = *p;
-    if (p->shape == EYES_SHAPE_SLEEP) {
+    if (p->shape == EYES_SHAPE_LENS) {
         int32_t lens_h = (int32_t)fmaxf(6.0f, 0.50f * (float)p->w);
         if (body.h > lens_h) body.h = lens_h;
+    }
+    if (p->shape == EYES_SHAPE_SLEEP) {
+        /* The neon curve: its height is the sag of the curve plus the stroke, whatever h asks for. */
+        body.h = (int32_t)(sleep_sag((float)p->w * 0.5f) + 2.0f * sleep_half_stroke((float)p->w * 0.5f) + 4.0f);
     }
     /* Arches keep the height the expression asks for: Happy, Excited and Sad differ by proportion. */
     setup_capsule(g, &body);
     float tilt = p->shape == EYES_SHAPE_SLOPE ? 0.65f : 0.28f;
     g->lid_slope = p->dir == 0 ? 0.0f : (p->dir > 0 ? tilt : -tilt);
-    if (p->shape == EYES_SHAPE_ARCH) g->lid_slope = p->dir < 0 ? -1.0f : 1.0f;
+    if (p->shape == EYES_SHAPE_ARCH) {
+        g->lid_slope = p->dir < 0 ? -1.0f : 1.0f;
+        g->arch_tilt = (p->dir == 2) ? (p->side < 0 ? 0.1f : -0.1f) : 0.0f; /* sad: the outer end droops */
+    }
     if (p->shape == EYES_SHAPE_WORRIED) g->lid_slope = p->side < 0 ? -1.0f : 1.0f;
+    if (p->shape == EYES_SHAPE_EGG) g->lid_slope = p->dir < 0 ? -1.0f : 1.0f;
+    if (p->shape == EYES_SHAPE_WORRIED) {
+        float full_hh = fmaxf(p->stroke_basis * 0.5f, g->body.hh);
+        g->wor_r = fminf(full_hh / 1.41421356f, g->body.hw / 2.157f);
+        g->wor_ys = clampf(0.02f, g->body.hh / full_hh, 1.0f);
+        g->wor_iys = 1.0f / g->wor_ys;
+    }
     g->mirror_x = false;
+    g->streak_half = fmaxf(2.0f, 0.05f * fminf(g->body.hw, g->body.hh));
+    g->streak_centre = -(ORB_RING_W + ORB_RIM_W) - 3.0f - g->streak_half;
+    g->egg_ix = 1.267f / fmaxf(g->body.hw, 1.0f);
+    g->egg_iy = 1.129f / fmaxf(g->body.hh, 1.0f);
+}
+
+/* Intersection of two shapes (signed distances a and b) with the corner rounded to radius r. */
+static inline float rounded_and(float a, float b, float r)
+{
+    float pa = a + r, pb = b + r;
+    float m = fmaxf(pa, pb);
+    float qa = fmaxf(pa, 0.0f), qb = fmaxf(pb, 0.0f);
+    return fminf(m, 0.0f) + fast_sqrtf(qa * qa + qb * qb) - r;
 }
 
 static float reference_sd(const geom_t *g, float x, float y)
@@ -433,43 +483,89 @@ static float reference_sd(const geom_t *g, float x, float y)
         return (fast_sqrtf(u * u + v * v) - 1.0f) * fminf(hw, hh);
     }
     if (g->shape == EYES_SHAPE_ARCH) {
+        if (g->arch_tilt != 0.0f) {
+            float c = cosf(g->arch_tilt), s = sinf(g->arch_tilt);
+            float rx = x * c - qy * s;
+            qy = x * s + qy * c;
+            x = rx;
+            u = x / hw;
+            v = qy / hh;
+        }
         /* Elliptical dome minus a broad, shallow underside; smooth the two meeting tips. */
         float outer = (fast_sqrtf(u * u + v * v) - 1.0f) * fminf(hw, hh);
-        float by = (qy * g->lid_slope - 0.98f * hh) / (0.95f * hh);
-        float bx = x / (1.10f * hw);
-        float bite = (fast_sqrtf(bx * bx + by * by) - 1.0f) * fminf(1.10f * hw, 0.95f * hh);
-        float rounding = fminf(2.5f, 0.15f * hh);
-        float blend = fmaxf(rounding - fabsf(outer + bite), 0.0f) / rounding;
-        return fmaxf(outer, -bite) + blend * blend * rounding * 0.25f;
+        float by = (qy * g->lid_slope - 0.74f * hh) / (0.88f * hh);
+        float bx = x / (1.02f * hw);
+        float bite = (fast_sqrtf(bx * bx + by * by) - 1.0f) * fminf(1.02f * hw, 0.88f * hh);
+        /* Rounded intersection of the dome and the outside of the bite: both are pulled in by r and
+         * the corner is then measured with a Euclidean distance, giving the tips a true radius r. */
+        float r = fminf(5.0f, 0.08f * hh);
+        return rounded_and(outer, -bite, r);
     }
     if (g->shape == EYES_SHAPE_HEART) {
         float sx = hw / 0.60355339f, sy = 2.0f * hh / 1.10355339f;
         return heart_sd(x / sx, (hh - qy) / sy) * fminf(sx, sy);
     }
     if (g->shape == EYES_SHAPE_SLEEP) {
-        /* Intersection of equal circles: a shallow lens, pointed at both ends. */
-        float r = (hw * hw + hh * hh) / (2.0f * hh);
-        float dy = fabsf(qy) + r - hh;
-        return fast_sqrtf(x * x + dy * dy) - r;
+        /* Distance to a shallow circular arc (ends raised), minus half the stroke. */
+        float t = sleep_half_stroke(hw);
+        float sag = sleep_sag(hw);
+        float ex = hw - t;
+        float rad = (ex * ex + sag * sag) / (2.0f * sag);
+        float ybot = 0.5f * sag;
+        float d;
+        if (fabsf(x) <= ex) {
+            float dy = qy - (ybot - rad);
+            d = fabsf(fast_sqrtf(x * x + dy * dy) - rad);
+        } else {
+            float dx = fabsf(x) - ex, dy = qy + 0.5f * sag;
+            d = fast_sqrtf(dx * dx + dy * dy);
+        }
+        return d - t;
+    }
+    if (g->shape == EYES_SHAPE_EGG) {
+        /* An egg measured from the reference chart: an ellipse 1.37 x 1 whose width tapers 16% toward
+         * the tip end, its long axis tilted 56 degrees from vertical toward the outer-bottom corner.
+         * Worked out in the left eye's frame (tip falls left); the right eye mirrors x. The unit
+         * shape has half extents 1.267 x 1.129 about its bounding-box centre (0.035, -0.066); the
+         * distance is approximate. */
+        float f = fminf(hw * (1.0f / 1.267f), hh * (1.0f / 1.129f)); /* per-axis scale: a blink flattens it */
+        float xm = g->lid_slope < 0.0f ? x : -x;
+        float sx = xm * g->egg_ix + 0.035f, sy = qy * g->egg_iy - 0.066f;
+        float v = sx * -0.829f + sy * 0.559f; /* along the axis, toward the tip */
+        float u = sx * -0.559f + sy * -0.829f; /* across it */
+        float w = fmaxf(1.0f - 0.1168f * v, 0.12f); /* the width here, at most 1.2: always below the length */
+        float uw = u / w, vl = v * (1.0f / 1.37f);
+        return (fast_sqrtf(uw * uw + vl * vl) - 1.0f) * w * f;
+    }
+    if (g->shape == EYES_SHAPE_LENS) {
+        /* A flat ellipse, the blink in the chart. Distance by the usual two-gradient approximation,
+         * which stays accurate for very flat ellipses. */
+        float px = fabsf(x), py = fabsf(qy);
+        float k0 = fast_sqrtf((px / hw) * (px / hw) + (py / hh) * (py / hh));
+        float k1 = fast_sqrtf((px / (hw * hw)) * (px / (hw * hw)) + (py / (hh * hh)) * (py / (hh * hh)));
+        return k1 > 1e-6f ? k0 * (k0 - 1.0f) / k1 : -hh;
     }
     if (g->shape == EYES_SHAPE_WORRIED) {
         /* Two joined circles on one baseline; the right one has twice the area (1.41x the radius) of the
          * left. Centres are 1.9 small radii apart, so the pair is 4.31 radii wide and shrinks as a unit. */
         const float k = 1.41421356f;
-        float r = fminf(hh / k, hw / 2.157f);
+        /* A blink lowers hh: flatten the pair vertically instead of shrinking it (which reads as a zoom). */
+        float r = g->wor_r, ys = g->wor_ys;
+        qy *= g->wor_iys;
         float rl = k * r;
         float small_x = -1.157f * r, large_x = 0.743f * r;
-        if (g->lid_slope < 0.0f) x = -x; /* the left eye is the right eye flipped: big circles face outward */
+        if (g->lid_slope > 0.0f) x = -x; /* the left eye is the right eye flipped: big lobes face inward */
         float ds = fast_sqrtf((x - small_x) * (x - small_x) + (qy - (rl - r)) * (qy - (rl - r))) - r;
         float dl = fast_sqrtf((x - large_x) * (x - large_x) + qy * qy) - rl;
-        float softness = 0.25f * r;
+        float softness = 0.7f * r;
         float blend = fmaxf(softness - fabsf(ds - dl), 0.0f) / softness;
-        return fminf(ds, dl) - blend * blend * softness * 0.25f;
+        return (fminf(ds, dl) - blend * blend * softness * 0.25f) * ys;
     }
     float ellipse = (fast_sqrtf(u * u + v * v) - 1.0f) * fminf(hw, hh);
     float slope = g->lid_slope * hh / hw;
     float lid = (-0.35f * hh + slope * x - qy) / fast_sqrtf(1.0f + slope * slope);
-    return fmaxf(ellipse, lid);
+    /* The corners where the lid meets the outline get a true radius. */
+    return rounded_and(ellipse, lid, fminf(g->shape == EYES_SHAPE_SLOPE ? 3.5f : 8.0f, 0.1f * hh));
 }
 
 typedef struct {
@@ -484,8 +580,78 @@ static bool accent_box(const geom_t *g, const eyes_raster_pose_t *p, accent_box_
     outer = fminf(outer, (float)p->w * 0.5f);
     a->cx = a->side * (outer + 14.0f);
     a->cy = fmaxf((float)g->y0 + 16.0f, (float)p->cy - (float)p->h * 0.5f + 4.0f);
-    a->hw = a->hh = 22.0f;
+    a->hw = a->hh = 30.0f;
     if (p->accent == EYES_ACCENT_SIDE_RAYS) a->cy = (float)p->cy;
+    if (p->accent == EYES_ACCENT_ZZZ) {
+        /* The chart's letters are large and float well above the closed eye. */
+        a->cx = a->side * ((float)p->w * 0.05f);
+        a->cy = (float)p->cy - 76.0f;
+        a->hw = a->hh = 66.0f;
+    }
+    switch (p->accent) {
+    case EYES_ACCENT_ELLIPSIS:
+        a->cx = a->side * (float)p->w * 0.12f;
+        a->cy = (float)p->cy - (float)p->h * 0.5f - 22.0f;
+        a->hw = 30.0f; a->hh = 12.0f;
+        break;
+    case EYES_ACCENT_BULB:
+        a->hw = 22.0f; a->hh = 30.0f;
+        a->cy = (float)p->cy - (float)p->h * 0.5f - 14.0f;
+        break;
+    case EYES_ACCENT_TARGET:
+        a->cx = 0.0f; a->cy = (float)p->cy + (float)p->h * 0.06f;
+        a->hw = a->hh = 36.0f;
+        if (p->shape == EYES_SHAPE_GLASS) { /* the crosshair sits on the pupil */
+            a->cx = -(float)p->side * p->glass.pupil_x * (float)p->w * 0.5f;
+            a->cy = (float)p->cy + p->glass.pupil_y * (float)p->h * 0.5f;
+        }
+        break;
+    case EYES_ACCENT_ANGER_MARK:
+        a->hw = a->hh = 22.0f;
+        break;
+    case EYES_ACCENT_TEARS:
+        a->cx = a->side * (float)p->w * 0.28f;
+        a->cy = (float)p->cy + (float)p->h * 0.5f + 22.0f;
+        a->hw = 16.0f; a->hh = 38.0f;
+        break;
+    case EYES_ACCENT_STRESS:
+        a->hw = 24.0f; a->hh = 20.0f;
+        break;
+    case EYES_ACCENT_EYEBAGS:
+        a->cx = 0.0f;
+        a->cy = (float)p->cy + (float)p->h * 0.5f + 8.0f;
+        a->hw = 44.0f; a->hh = 16.0f;
+        break;
+    case EYES_ACCENT_TONGUE:
+        a->cx = a->side * (float)p->w * 0.08f;
+        a->cy = (float)p->cy + (float)p->h * 0.5f + 16.0f;
+        if (p->shape == EYES_SHAPE_GLASS) { /* at the lower outer corner, as in the sheet */
+            a->cx = -a->side * (float)p->w * 0.5f; /* on the inner edge: below the gap between the eyes */
+            a->cy = (float)p->cy + (float)p->h * 0.5f - 6.0f;
+        }
+        a->hw = 20.0f; a->hh = 24.0f;
+        break;
+    case EYES_ACCENT_GLITCH:
+        a->cx = 0.0f; a->cy = (float)p->cy;
+        a->hw = 46.0f; a->hh = 30.0f;
+        break;
+    default:
+        break;
+    }
+    if (p->accent == EYES_ACCENT_QUESTION) {
+        /* Above the eye's upper outer corner, so wide eyes never push it off the round panel. */
+        a->cx = a->side * (float)p->w * 0.34f;
+        a->cy = (float)p->cy - (float)p->h * 0.5f - 6.0f;
+        a->hw = 22.0f;
+        a->hh = 26.0f;
+    }
+    if (p->accent == EYES_ACCENT_CLOUDS) {
+        /* The chart's clouds are big and overlap the orb: low on the left eye, high on the right. */
+        a->cx = a->side * ((float)p->w * 0.42f);
+        a->cy = (float)p->cy + (p->side < 0 ? 0.30f : -0.42f) * (float)p->h;
+        a->hw = 46.0f;
+        a->hh = 38.0f;
+    }
     if (p->accent == EYES_ACCENT_NERVOUS) {
         /* Chart: three staggered strokes hugging the upper outer edge of the orb. */
         a->cx = a->side * (float)p->w * 0.5f;
@@ -494,10 +660,20 @@ static bool accent_box(const geom_t *g, const eyes_raster_pose_t *p, accent_box_
         a->hh = 62.0f;
     }
     if (p->accent == EYES_ACCENT_BLUSH) {
-        a->cx = a->side * (float)p->w * 0.28f;
-        a->cy = (float)g->y1 + 3.0f;
-        a->hw = 18.0f;
-        a->hh = 7.0f;
+        a->cx = a->side * (float)p->w * 0.34f;
+        a->cy = (float)g->y1 - 4.0f;
+        a->hw = 30.0f;
+        a->hh = 16.0f;
+    }
+    if (p->accent == EYES_ACCENT_TOP_RAYS) {
+        a->cx = -a->side * ((float)p->w * 0.5f + 10.0f);
+        a->cy = (float)p->cy - (float)p->h * 0.5f - 24.0f;
+        if (p->shape == EYES_SHAPE_GLASS) { /* centred above the lid line */
+            a->cx = 0.0f;
+            a->cy = (float)p->cy - (float)p->h * 0.5f - p->glass.lid_gap * (float)p->w * 0.5f - 16.0f;
+        }
+        a->hw = 42.0f;
+        a->hh = 40.0f;
     }
     /* Move ink, rather than clipping it, when a wide stroke nearly fills the sprite budget. */
     a->cx = clampf((float)g->x1 - 255.0f + a->hw + 2.0f, a->cx,
@@ -587,7 +763,7 @@ static void build_cap_lut(void)
          * edge and a shadow that fades in from the rim. */
         float bloom = 1.0f - smoothstepf(0.0f, ORB_GLOW_R, d);
         rgb_t c = s_black;
-        over(&c, s_orb_glow, 0.75f * bloom * bloom * bloom);
+        over(&c, s_orb_glow, 0.55f * bloom * bloom * bloom);
         over(&c, s_orb_ring, cov(d));
         over(&c, s_orb_rim, cov(d + ORB_RING_W));
         float fill = clampf(0.0f, 0.5f - (d + ORB_RING_W + ORB_RIM_W) / 1.5f, 1.0f);
@@ -657,18 +833,38 @@ static inline uint16_t shade_orb_d(const geom_t *g, float d, float x, float y)
 
 static inline rgb_t unpack(uint16_t px);
 
+/* Closed eyes: an orange glowing tube with a bright core, no orb gradient. */
+static inline uint16_t shade_neon(const geom_t *g, float d, float x, float y)
+{
+    float t = sleep_half_stroke(g->body.hw);
+    rgb_t c = s_black;
+    float bloom = 1.0f - smoothstepf(0.0f, ORB_GLOW_R * 1.3f, d);
+    over(&c, s_orb_glow, 0.8f * bloom * bloom);
+    over(&c, s_orb_glow, cov(d));
+    over(&c, s_orb_ring, cov(d + 1.5f) * 0.85f);
+    over(&c, s_orb_top, cov(d + 0.62f * t));
+    return pack_dither(c, iabs_x(x), (int32_t)y);
+}
+
 static inline uint16_t shade_reference(const geom_t *g, float x, float y)
 {
     float d = reference_sd(g, x, y);
+    if (g->shape == EYES_SHAPE_SLEEP) {
+        return shade_neon(g, d, x, y);
+    }
     uint16_t px = shade_orb_d(g, d, x, y);
     if (d < -(ORB_RING_W + ORB_RIM_W + 1.0f)) {
         rgb_t c = unpack(px);
         float inner = cov(d + ORB_RING_W + ORB_RIM_W + 2.0f);
         over(&c, s_orb_dot, inner * dot_alpha(g, x, y));
-        float u = (x + 0.32f * g->body.hw) / (0.32f * g->body.hw);
-        float v = (y - g->body.cy + 0.08f * g->body.hh) / (0.09f * g->body.hh + 1.0f);
-        float gloss = clampf(0.0f, 1.0f - u * u - v * v, 1.0f);
-        if (g->shape != EYES_SHAPE_OVAL) over(&c, s_white, 0.7f * inner * gloss);
+        /* A curved highlight streak just inside the upper-left edge, following the outline. */
+        float pd = fabsf(d - g->streak_centre) - g->streak_half;
+        if (pd < 1.0f) {
+            float nx = x, ny = y - g->body.cy;
+            float facing = (nx * -0.66f + ny * -0.75f) / (fast_sqrtf(nx * nx + ny * ny) + 1e-3f);
+            float arc = smoothstepf(0.78f, 0.92f, facing);
+            over(&c, s_white, 0.8f * inner * arc * clampf(0.0f, 0.5f - pd / 1.5f, 1.0f));
+        }
         px = pack_dither(c, iabs_x(x), (int32_t)y);
     }
     return px;
@@ -676,7 +872,7 @@ static inline uint16_t shade_reference(const geom_t *g, float x, float y)
 
 static void setup_chevron(geom_t *g, const eyes_raster_pose_t *p)
 {
-    int32_t stroke = (int32_t)(p->stroke_basis * 0.3f);
+    int32_t stroke = (int32_t)fminf(p->stroke_basis * 0.36f, 52.0f); /* the sprite budget is 256 px */
     if (stroke < 8) {
         stroke = 8;
     }
@@ -799,7 +995,7 @@ static void setup_spiral(geom_t *g, const eyes_raster_pose_t *p)
     g->spin_dir = p->dir >= 0 ? 1.0f : -1.0f;
     g->spin_phase = p->spin;
     g->spiral_amt = p->stripes;
-    float pitch = 0.42f * g->body.hw;
+    float pitch = 0.31f * g->body.hw;
     g->spiral_pitch = pitch > 10.0f ? pitch : 10.0f;
     g->spiral_inv_pitch = 1.0f / g->spiral_pitch;
 }
@@ -815,12 +1011,12 @@ static inline uint16_t fill_spiral(const geom_t *g, float x, float y)
     }
     float qy = y - g->body.cy;
     float r = fast_sqrtf(x * x + qy * qy);
-    float fade = g->spiral_amt * smoothstepf(2.0f, 10.0f, r);
+    float fade = g->spiral_amt * smoothstepf(0.5f, 2.5f, r);
     if (fade <= 0.0f) {
         return s_grad_packed[yi][ax & 3];
     }
     float s = g->spin_dir * fast_atan2f(qy, x) * (SPIRAL_ARMS / 6.28318531f) + r * g->spiral_inv_pitch -
-              g->spin_phase + 4.0f;
+              g->spin_phase + 4.5f;
     float f = s - (float)(int32_t)s;
     float edge_px = (SPIRAL_HALF - fabsf(f - 0.5f)) * g->spiral_pitch;
     float a = SPIRAL_OPA * fade * clampf(0.0f, 0.5f + edge_px, 1.0f);
@@ -921,6 +1117,16 @@ static inline bool block_near_ticks(const geom_t *g, float x, float y)
                 if (kind == 1) {                                                             \
                     for (int32_t u = bu; u < ue; u++, x += mxx, y += myx) {                  \
                         row[u] = FILL(&g, x, y);                                             \
+                    }                                                                        \
+                } else if (g.draft && !row_mirror) {                                         \
+                    int32_t ds = g.dstep ? g.dstep : 2;                                      \
+                    if (v % ds) {                                                            \
+                        memcpy(row + bu, row - s->w + bu, (size_t)(ue - bu) * sizeof(uint16_t)); \
+                    } else {                                                                 \
+                        for (int32_t u = bu; u < ue; u += ds, x += (float)ds * mxx, y += (float)ds * myx) { \
+                            uint16_t px_ = SHADE(&g, x, y);                                  \
+                            for (int32_t k_ = 0; k_ < ds && u + k_ < ue; k_++) row[u + k_] = px_; \
+                        }                                                                    \
                     }                                                                        \
                 } else {                                                                     \
                     for (int32_t u = bu; u < ue; u++, x += mxx, y += myx) {                  \
@@ -1274,6 +1480,9 @@ static void raster_capsule_columns(const raster_job_t *job)
     }
 }
 
+static inline float glass_outer(const geom_t *g, float x, float y);
+static inline uint16_t shade_glass(const geom_t *g, float x, float y);
+
 static void raster_shape(raster_job_t *job)
 {
     const geom_t g = job->g;
@@ -1295,9 +1504,12 @@ static void raster_shape(raster_job_t *job)
     case EYES_SHAPE_HEART:
     case EYES_SHAPE_WORRIED:
     case EYES_SHAPE_SLEEP:
+    case EYES_SHAPE_EGG:
+    case EYES_SHAPE_LENS:
     case EYES_SHAPE_OVAL:
         RASTER_BANDS(shade_reference, outer_reference, fill_capsule);
         break;
+    case EYES_SHAPE_GLASS: RASTER_BANDS(shade_glass, glass_outer, fill_capsule); break;
     }
 }
 
@@ -1313,10 +1525,224 @@ static void mirror_rows(raster_job_t *job)
     }
 }
 
+
+/* ---------------------------------------------------------------- glass style */
+
+/* Rounded box of half extents (hw, hh) and corner radius rc, centred on the origin. */
+static inline float sd_round_box(float x, float y, float hw, float hh, float rc)
+{
+    float qx = fabsf(x) - (hw - rc), qy = fabsf(y) - (hh - rc);
+    float ax = fmaxf(qx, 0.0f), ay = fmaxf(qy, 0.0f);
+    return fast_sqrtf(ax * ax + ay * ay) + fminf(fmaxf(qx, qy), 0.0f) - rc;
+}
+
+/* Straight sides with an elliptical bottom of semi-height bb and, if bt > 0, an elliptical top of semi-height bt. */
+static inline float sd_shield(float x, float qy, float hw, float hh, float bb, float bt)
+{
+    float ax = fabsf(x), dy, b;
+    float yb = qy - (hh - bb), yt = -qy - (hh - bt);
+    if (yb > 0.0f) { dy = yb; b = bb; }
+    else if (bt > 0.5f && yt > 0.0f) { dy = yt; b = bt; }
+    else return ax - hw;
+    float qx = ax / hw, qz = dy / b;
+    float len = fast_sqrtf(qx * qx + qz * qz);
+    if (len < 1e-3f) return -hw;
+    float gx = qx / (hw * len), gz = qz / (b * len);
+    return fmaxf(ax - hw, (len - 1.0f) / fast_sqrtf(gx * gx + gz * gz));
+}
+
+#define GLASS_EXT 18.0f      /* lid line reach past the body, upper bound for the bounding margin */
+#define SHIELD_LID_LEN 1.18f /* lid line half length, fraction of the half width */
+#define SHIELD_ASPECT 0.875f /* pupil height / width */
+static const rgb_t s_pupil = { 2.0f, 12.0f, 22.0f };
+
+static void setup_glass(geom_t *g, const eyes_raster_pose_t *p)
+{
+    eyes_raster_pose_t body = *p;
+    setup_capsule(g, &body);
+    const eyes_glass_t *k = &p->glass;
+    float hw = g->body.hw, hh = g->body.hh;
+    g->nose = p->dir >= 0 ? 1.0f : -1.0f;
+    g->g_rc = fminf(fmaxf(k->corner, 0.05f) * hw, hw - 1.0f);
+    g->g_xext = hw * (k->lid_len > 0.0f ? k->lid_len : SHIELD_LID_LEN);
+    float cy = g->body.cy;
+    g->g_top0 = cy - hh + 2.0f * hh * k->top;
+    g->g_top_s = k->top_slope;
+    g->g_top_b = k->top_bow * hh;
+    g->g_bot0 = cy + hh - 2.0f * hh * k->bot;
+    g->g_bot_s = k->bot_slope;
+    g->g_bot_b = k->bot_bow * hh;
+    g->g_pr = k->pupil * hw;
+    g->g_px = k->pupil_x * hw * g->nose;
+    g->g_py = cy + k->pupil_y * hh;
+    g->g_pkind = k->pupil_kind;
+    g->g_round = clampf(0.0f, k->round_top, 1.0f);
+    g->g_tn = fast_sqrtf(1.0f + g->g_top_s * g->g_top_s);
+    g->g_bn = fast_sqrtf(1.0f + g->g_bot_s * g->g_bot_s);
+    g->g_stip = 7.0f * hw / 39.0f;
+    g->g_lid = k->lid_gap > 0.0f ? 1.0f : 0.0f;
+    g->g_lidgap = k->lid_gap * hw;
+    /* Gloss arc: a quadratic curve near the upper left, anchored to the bottom of the body. */
+    float u = hw / 39.0f, base = cy + hh - 45.0f * u;
+    static const float gp[3][2] = { { -31.0f, 6.0f }, { -30.0f, -2.0f }, { -21.0f, -5.0f } };
+    for (int i = 0; i < 6; i++) {
+        float t = (float)i / 5.0f, a = (1.0f - t) * (1.0f - t), b = 2.0f * t * (1.0f - t), c = t * t;
+        g->g_gl[i * 2] = (a * gp[0][0] + b * gp[1][0] + c * gp[2][0]) * u;
+        g->g_gl[i * 2 + 1] = base + (a * gp[0][1] + b * gp[1][1] + c * gp[2][1]) * u;
+    }
+    g->g_gx0 = g->g_gx1 = g->g_gl[0]; g->g_gy0 = g->g_gy1 = g->g_gl[1];
+    for (int i = 1; i < 6; i++) {
+        g->g_gx0 = fminf(g->g_gx0, g->g_gl[i * 2]); g->g_gx1 = fmaxf(g->g_gx1, g->g_gl[i * 2]);
+        g->g_gy0 = fminf(g->g_gy0, g->g_gl[i * 2 + 1]); g->g_gy1 = fmaxf(g->g_gy1, g->g_gl[i * 2 + 1]);
+    }
+    /* Room for the bloom and for the lid line, which floats above the body and may be tilted. */
+    float m = ORB_GLOW_R * 2.0f + 2.0f;
+    float line_gap = g->g_lidgap;
+    float ytop = fminf(g->g_top0 - fabsf(g->g_top_s) * g->g_xext - g->g_top_b, g->g_top0) - line_gap - 4.0f;
+    bbox_add(g, -g->g_xext - m, fminf(cy - hh, ytop) - m, g->g_xext + m, cy + hh + m);
+    g->mirror_x = false;
+}
+
+static inline float glass_outer(const geom_t *g, float x, float y)
+{
+    float hh = g->body.hh;
+    float top = fminf(g->g_top0 - fabsf(g->g_top_s) * g->g_xext - g->g_top_b - g->g_lidgap - 4.0f, g->body.cy - hh);
+    float cy = (top + g->body.cy + hh) * 0.5f, half = (g->body.cy + hh - top) * 0.5f;
+    return sd_round_box(x, y - cy, g->g_xext + 2.0f, half + 2.0f, 4.0f) - ORB_GLOW_R;
+}
+
+static inline uint16_t shade_glass(const geom_t *g, float x, float y)
+{
+    float hw = g->body.hw, hh = g->body.hh, cy = g->body.cy, qy = y - cy;
+    float xn = x * g->nose; /* toward the nose is positive */
+    float bx = x * x / (g->g_xext * g->g_xext);
+    float topy = g->g_top0 + g->g_top_s * xn + g->g_top_b * (1.0f - bx);
+    float tn = g->g_tn;
+    /* shield: straight sides with elliptical corners, open upward unless the top is rounded; cut by the lid line */
+    float d = sd_shield(x, qy, hw, hh, fminf(g->g_rc, hh), g->g_round * hh);
+    float dt = (topy - y) / tn;
+    if (dt > d) d = dt;
+    bool cut = g->g_bot0 < cy + hh - 0.5f || g->g_bot_b != 0.0f;
+    if (cut) {
+        float by = g->g_bot0 + g->g_bot_s * xn - g->g_bot_b * (1.0f - bx);
+        float db = (y - by) / g->g_bn;
+        if (db > d) d = db;
+    }
+    float ly0 = topy - g->g_lidgap;
+    if (d > ORB_GLOW_R * 2.0f && (!g->g_lid || fabsf(y - ly0) > 9.0f)) return 0;
+    rgb_t c = s_black;
+    float bloom = 1.0f - smoothstepf(0.0f, ORB_GLOW_R * 2.0f, d);
+    if (d > 0.0f) over(&c, s_orb_glow, 0.30f * bloom * bloom);
+    float body = cov(d);
+    if (body > 0.0f) {
+        int32_t yi = (int32_t)y - g->grad_base;
+        if (yi < 0) yi = 0;
+        rgb_t f = s_grad[yi];
+        float u = hw / 39.0f;
+        /* bright rim at the top edge, light pooling toward the bottom */
+        over(&f, s_white, 0.55f * (1.0f - smoothstepf(0.0f, 5.0f * u, y - topy)));
+        float ax = (x / (2.0f * hw) + 0.04f) / 0.74f, ay = (qy / (2.0f * hh) - 0.34f) / 0.74f;
+        float rt2 = ax * ax + ay * ay; /* squared radius: no square root in the hot loop */
+        float aq = rt2 < 0.21f ? 0.63f - 0.44f * rt2 * 4.762f : 0.19f * clampf(0.0f, 1.0f - (rt2 - 0.21f) * 1.266f, 1.0f);
+        over(&f, s_orb_ring, 0.56f * aq);
+        over(&f, s_white, 0.5f * smoothstepf(-0.3f * hh, hh, qy) * smoothstepf(8.0f, 0.0f, -d));
+        if (!g->draft && y > cy + hh - 21.0f * u) {
+            float P = g->g_stip;
+            float dx = x - roundf(x / P) * P, dy = y - roundf((y - cy) / P) * P - cy;
+            float rr = 0.74f * u + 0.5f;
+            float d2 = dx * dx + dy * dy;
+            if (d2 < rr * rr) over(&f, s_orb_dot, 0.2f * (1.0f - d2 / (rr * rr)));
+        }
+        /* gloss arc, under the pupil */
+        float lw = 1.5f * u;
+        if (x > g->g_gx0 - lw - 1.0f && x < g->g_gx1 + lw + 1.0f && y > g->g_gy0 - lw - 1.0f && y < g->g_gy1 + lw + 1.0f) {
+            float gd = 1e9f;
+            for (int i = 0; i < 5; i++) {
+                float ax2 = g->g_gl[i * 2], ay2 = g->g_gl[i * 2 + 1];
+                float bx2 = g->g_gl[i * 2 + 2] - ax2, by2 = g->g_gl[i * 2 + 3] - ay2;
+                float qx2 = x - ax2, qy2 = y - ay2;
+                float h = clampf(0.0f, (qx2 * bx2 + qy2 * by2) / (bx2 * bx2 + by2 * by2), 1.0f);
+                float ex = qx2 - bx2 * h, ey = qy2 - by2 * h;
+                float dd = ex * ex + ey * ey;
+                if (dd < gd) gd = dd;
+            }
+            over(&f, s_white, 0.85f * cov(fast_sqrtf(gd) - lw));
+        }
+        /* pupil */
+        if (g->g_pr > 0.0f) {
+            float px = x - g->g_px, py = y - g->g_py;
+            float lim = g->g_pr * 1.15f;
+            if (px > -lim && px < lim && py > -lim && py < lim) {
+                if (g->g_pkind == 2) {
+                    /* spiral: a dark ribbon with a bright core */
+                    float rr = fast_sqrtf(px * px + py * py);
+                    if (rr < g->g_pr * 1.02f) {
+                        float pitch = g->g_pr * 0.38f;
+                        float t = rr / pitch - atan2f(py, px) * 0.15915494f;
+                        t -= floorf(t);
+                        float dist = (t < 0.5f ? t : 1.0f - t) * pitch;
+                        float edge = cov(rr - g->g_pr);
+                        over(&f, s_pupil, edge * cov(dist - 0.36f * pitch));
+                        over(&f, s_orb_ring, 0.95f * edge * cov(dist - 0.09f * pitch));
+                    }
+                } else {
+                    float pd;
+                    if (g->g_pkind == 1) {
+                        float sx = g->g_pr;
+                        pd = heart_sd(px / sx, (sx * 0.6f - py) / sx) * sx;
+                    } else {
+                        pd = (fast_sqrtf(px * px + py * py / (SHIELD_ASPECT * SHIELD_ASPECT)) - g->g_pr) * SHIELD_ASPECT;
+                    }
+                    over(&f, s_pupil, cov(pd));
+                }
+            }
+        }
+        over(&c, f, body);
+    }
+    /* thin bright outline on the body edge */
+    {
+        float ring = cov(fabsf(d + 0.6f) - 0.8f);
+        if (ring > 0.0f) over(&c, s_orb_ring, 0.9f * ring);
+    }
+    /* floating lid line */
+    if (g->g_lid > 0.0f) {
+        float ly = topy - g->g_lidgap;
+        float ld = fmaxf(fabsf(y - ly) / tn - 1.1f, fabsf(x) - g->g_xext);
+        float a = g->g_lid;
+        over(&c, s_orb_glow, 0.2f * a * (1.0f - smoothstepf(0.0f, 7.0f, ld)));
+        over(&c, s_orb_ring, 0.95f * a * cov(ld));
+        over(&c, s_white, 0.4f * a * cov(ld + 0.5f));
+    }
+    return pack_dither(c, iabs_x(x), (int32_t)y);
+}
+
+static atomic_int s_style;
+
+void eyes_raster_set_style(int style)
+{
+    atomic_store_explicit(&s_style, style, memory_order_release);
+}
+
+int eyes_raster_get_style(void)
+{
+    return atomic_load_explicit(&s_style, memory_order_acquire);
+}
+
+/* In the glass style every eye is drawn by the glass shape, whatever the orb shape asked for. */
+static eyes_raster_pose_t styled(const eyes_raster_pose_t *pose)
+{
+    eyes_raster_pose_t q = *pose;
+    if (eyes_raster_get_style() == EYES_STYLE_GLASS && pose->w > 0 && pose->glass.w > 0.0f) {
+        q.shape = EYES_SHAPE_GLASS;
+    }
+    return q;
+}
+
 static void setup_geom(geom_t *g, const eyes_raster_pose_t *pose)
 {
     memset(g, 0, sizeof(*g));
     g->shape = pose->shape;
+    g->draft = pose->draft;
     g->x0 = g->y0 = INT32_MAX;
     g->x1 = g->y1 = INT32_MIN;
     switch (pose->shape) {
@@ -1330,14 +1756,19 @@ static void setup_geom(geom_t *g, const eyes_raster_pose_t *pose)
     case EYES_SHAPE_HEART:
     case EYES_SHAPE_WORRIED:
     case EYES_SHAPE_SLEEP:
+    case EYES_SHAPE_EGG:
+    case EYES_SHAPE_LENS:
     case EYES_SHAPE_OVAL: setup_reference(g, pose); break;
+    case EYES_SHAPE_GLASS: setup_glass(g, pose); break;
     }
     setup_ticks(g, pose);
     setup_accent_bounds(g, pose);
 }
 
-void eyes_raster_bounds(const eyes_raster_pose_t *pose, int rotation, int32_t *w, int32_t *h)
+void eyes_raster_bounds(const eyes_raster_pose_t *in, int rotation, int32_t *w, int32_t *h)
 {
+    const eyes_raster_pose_t styled_pose = styled(in);
+    const eyes_raster_pose_t *pose = &styled_pose;
     geom_t g;
     setup_geom(&g, pose);
     int32_t du0, du1, dv0, dv1;
@@ -1347,22 +1778,49 @@ void eyes_raster_bounds(const eyes_raster_pose_t *pose, int rotation, int32_t *w
     *h = dv1 - dv0 + 1;
 }
 
+/* The theme is set from the UI core and read by whichever core rasterizes. A sequence counter
+ * (odd while the struct is being written) makes the hand-over safe without a lock: the reader
+ * retries until it has copied one complete, unchanged theme. */
+static eyes_theme_t s_pending_theme = {
+    ORB_FILL_TOP, ORB_FILL_MID, ORB_FILL_BOTTOM, ORB_RIM, ORB_RING, ORB_GLOW, ORB_DOT, COLOR_EDGE, SPIRAL_COLOR,
+};
+static atomic_uint s_theme_seq;                       /* even = stable */
+static unsigned s_theme_applied = UINT32_MAX;         /* sequence the colors were built from */
+
+void eyes_raster_set_theme(const eyes_theme_t *theme)
+{
+    unsigned q = atomic_load_explicit(&s_theme_seq, memory_order_relaxed);
+    atomic_store_explicit(&s_theme_seq, q + 1, memory_order_release);
+    atomic_thread_fence(memory_order_release);
+    s_pending_theme = *theme;
+    atomic_store_explicit(&s_theme_seq, q + 2, memory_order_release);
+}
+
 static void ensure_colors(void)
 {
-    static bool colors_ready;
-    if (!colors_ready) {
-        s_edge = hex(COLOR_EDGE);
-        s_orb_top = hex(ORB_FILL_TOP);
-        s_orb_mid = hex(ORB_FILL_MID);
-        s_orb_bottom = hex(ORB_FILL_BOTTOM);
-        s_orb_rim = hex(ORB_RIM);
-        s_orb_ring = hex(ORB_RING);
-        s_orb_glow = hex(ORB_GLOW);
-        s_orb_dot = hex(ORB_DOT);
-        s_spiral = hex(SPIRAL_COLOR);
-        build_cap_lut();
-        colors_ready = true;
+    unsigned q = atomic_load_explicit(&s_theme_seq, memory_order_acquire);
+    if (q == s_theme_applied) {
+        return;
     }
+    eyes_theme_t t;
+    unsigned q2;
+    do {
+        q = atomic_load_explicit(&s_theme_seq, memory_order_acquire);
+        t = s_pending_theme;
+        atomic_thread_fence(memory_order_acquire);
+        q2 = atomic_load_explicit(&s_theme_seq, memory_order_acquire);
+    } while ((q & 1u) || q != q2);
+    s_theme_applied = q;
+    s_edge = hex(t.edge);
+    s_orb_top = hex(t.fill_top);
+    s_orb_mid = hex(t.fill_mid);
+    s_orb_bottom = hex(t.fill_bottom);
+    s_orb_rim = hex(t.rim);
+    s_orb_ring = hex(t.ring);
+    s_orb_glow = hex(t.glow);
+    s_orb_dot = hex(t.dot);
+    s_spiral = hex(t.spiral);
+    build_cap_lut();
 }
 
 static void render_full(const eyes_raster_pose_t *pose, int rotation, eyes_sprite_t *s, bool gloss)
@@ -1402,8 +1860,7 @@ static void render_full(const eyes_raster_pose_t *pose, int rotation, eyes_sprit
         mirror_rows(job);
     }
     /* Only after mirroring: the highlight sits on source rows and must not be copied across. */
-    if (gloss && (pose->shape == EYES_SHAPE_CAPSULE || pose->shape == EYES_SHAPE_SPIRAL ||
-                  pose->shape == EYES_SHAPE_OVAL)) {
+    if (gloss && (pose->shape == EYES_SHAPE_CAPSULE || pose->shape == EYES_SHAPE_OVAL)) {
         paint_glint(g, rotation, s);
     }
 }
@@ -1482,11 +1939,11 @@ static spiral_cache_t *spiral_entry(const eyes_raster_pose_t *pose, int rotation
             uint16_t code = S0_OUTSIDE;
             if (sd_stadium_lo(x, qy, g->body.hw, g->body.hh) < CAP_LUT_DMIN) {
                 float r = fast_sqrtf(x * x + qy * qy);
-                if (r < 10.0f) {
+                if (r < 2.5f) {
                     code = S0_CENTER;
                 } else {
                     float sc = g->spin_dir * fast_atan2f(qy, x) * (SPIRAL_ARMS / 6.28318531f) +
-                               r * g->spiral_inv_pitch + 4.0f;
+                               r * g->spiral_inv_pitch + 4.5f;
                     float f = sc - (float)(int32_t)sc;
                     code = (uint16_t)(f * 65535.0f);
                     code = code >= S0_CENTER ? S0_CENTER - 1u : code;
@@ -1540,9 +1997,9 @@ static void render_spiral_spin(const eyes_raster_pose_t *pose, int rotation, eye
             float qy = m[2] * du + m[3] * dv - g->body.cy;
             float r = fast_sqrtf(x * x + qy * qy);
             float sc = g->spin_dir * fast_atan2f(qy, x) * (SPIRAL_ARMS / 6.28318531f) + r * g->spiral_inv_pitch -
-                       pose->spin + 4.0f;
+                       pose->spin + 4.5f;
             float f = sc - (float)(int32_t)sc;
-            a = amt * smoothstepf(2.0f, 10.0f, r) *
+            a = amt * smoothstepf(0.5f, 2.5f, r) *
                 clampf(0.0f, 0.5f + (SPIRAL_HALF - fabsf(f - 0.5f)) * pitch, 1.0f);
         } else {
             int32_t dd = (int32_t)(uint16_t)(code - phase) - 32768;
@@ -1614,41 +2071,42 @@ static void accent_plus(accent_ink_t *a, float x, float y, float r)
 
 static void accent_z(accent_ink_t *a, float x, float y, float r)
 {
-    accent_line(a, x - r, y - r, x + r, y - r, 1.2f);
-    accent_line(a, x + r, y - r, x - r, y + r, 1.2f);
-    accent_line(a, x - r, y + r, x + r, y + r, 1.2f);
+    float w = 0.9f + 0.1f * r;
+    accent_line(a, x - r, y - r, x + r, y - r, w);
+    accent_line(a, x + r, y - r, x - r, y + r, w);
+    accent_line(a, x - r, y + r, x + r, y + r, w);
 }
 
-static void setup_accent_ink(accent_ink_t *a, eyes_accent_t kind)
+static void setup_accent_ink(accent_ink_t *a, eyes_accent_t kind, bool glass)
 {
     memset(a, 0, sizeof(*a));
     switch (kind) {
     case EYES_ACCENT_NONE: break;
     case EYES_ACCENT_RAYS:
-        accent_line(a, -13, -2, -18, -12, 1.8f);
-        accent_line(a, -2, -5, -2, -19, 1.8f);
-        accent_line(a, 9, -2, 16, -14, 1.8f);
+        accent_line(a, -17, -2, -25, -15, 3.0f);
+        accent_line(a, -2, -7, -2, -27, 3.0f);
+        accent_line(a, 12, -2, 22, -18, 3.0f);
         break;
     case EYES_ACCENT_SIDE_RAYS:
-        accent_line(a, -5, -7, 11, -16, 1.8f);
-        accent_line(a, -2, 0, 18, 0, 1.8f);
-        accent_line(a, -5, 7, 11, 16, 1.8f);
+        accent_line(a, -3, -10, 14, -21, 3.0f);
+        accent_line(a, 0, 0, 23, 0, 3.0f);
+        accent_line(a, -3, 10, 14, 21, 3.0f);
         break;
     case EYES_ACCENT_SPARKLES: {
         static const float points[8][2] = {
-            {0,-14}, {3,-3}, {11,0}, {3,3}, {0,14}, {-3,3}, {-11,0}, {-3,-3}
+            {0,-30}, {6,-6}, {24,0}, {6,6}, {0,30}, {-6,6}, {-24,0}, {-6,-6}
         };
         a->nverts = 8;
         memcpy(a->verts, points, sizeof(points));
-        accent_plus(a, 15, -13, 4);
-        accent_plus(a, -14, 12, 3);
+        accent_plus(a, 34, -22, 7);
+        accent_plus(a, -30, 26, 6);
         break;
     }
     case EYES_ACCENT_STAR:
         a->nverts = 10;
         for (int i = 0; i < 10; i++) {
             float t = (float)i * 0.62831853f - 1.57079633f;
-            float r = (i & 1) ? 6.5f : 16.0f;
+            float r = (i & 1) ? 9.5f : 23.0f;
             a->verts[i][0] = r * cosf(t);
             a->verts[i][1] = r * sinf(t);
         }
@@ -1665,13 +2123,13 @@ static void setup_accent_ink(accent_ink_t *a, eyes_accent_t kind)
     }
     case EYES_ACCENT_HEARTS:
         a->nhearts = 2;
-        a->hearts[0][0] = -6; a->hearts[0][1] = 6; a->hearts[0][2] = 9;
-        a->hearts[1][0] = 10; a->hearts[1][1] = -11; a->hearts[1][2] = 6;
+        a->hearts[0][0] = 0; a->hearts[0][1] = -4; a->hearts[0][2] = 17;
+        a->hearts[1][0] = 20; a->hearts[1][1] = 18; a->hearts[1][2] = 6;
         break;
     case EYES_ACCENT_BLUSH:
-        for (int i = 0; i < 4; i++) {
-            float x = -13.0f + 8.0f * (float)i;
-            accent_line(a, x, 3, x + 3, -3, 1.5f);
+        for (int i = 0; i < 3; i++) {
+            float x = -17.0f + 13.0f * (float)i;
+            accent_line(a, x, 11, x + 13, -11, 2.8f);
         }
         break;
     case EYES_ACCENT_NERVOUS:
@@ -1686,18 +2144,93 @@ static void setup_accent_ink(accent_ink_t *a, eyes_accent_t kind)
         a->verts[2][0] = 8; a->verts[2][1] = 4;
         accent_disc(a, 0, 4, 8);
         break;
+    case EYES_ACCENT_ELLIPSIS:
+        accent_disc(a, -14, 0, 4.6f);
+        accent_disc(a, 0, 0, 4.6f);
+        accent_disc(a, 14, 0, 4.6f);
+        break;
+    case EYES_ACCENT_BULB:
+        accent_disc(a, 0, -8, 12.0f);
+        accent_line(a, -6, 8, 6, 8, 3.0f);
+        accent_line(a, -4, 14, 4, 14, 2.4f);
+        accent_line(a, -22, -8, -17, -8, 1.8f);
+        accent_line(a, 17, -8, 22, -8, 1.8f);
+        accent_line(a, -17, -22, -13, -18, 1.8f);
+        accent_line(a, 17, -22, 13, -18, 1.8f);
+        break;
+    case EYES_ACCENT_TARGET:
+        for (int i = 0; i < 12; i++) {
+            float t0 = (float)i * 0.5235988f, t1 = (float)(i + 1) * 0.5235988f;
+            accent_line(a, 16.0f * cosf(t0), 16.0f * sinf(t0), 16.0f * cosf(t1), 16.0f * sinf(t1), 1.6f);
+        }
+        if (glass) {
+            accent_line(a, -26, 0, -9, 0, 1.6f); accent_line(a, 9, 0, 26, 0, 1.6f);
+            accent_line(a, 0, -26, 0, -9, 1.6f); accent_line(a, 0, 9, 0, 26, 1.6f);
+        }
+        break;
+    case EYES_ACCENT_ANGER_MARK:
+        for (int sx = -1; sx <= 1; sx += 2) {
+            for (int sy = -1; sy <= 1; sy += 2) {
+                accent_line(a, 13.0f * sx, 13.0f * sy, 13.0f * sx, 4.0f * sy, 2.4f);
+                accent_line(a, 13.0f * sx, 13.0f * sy, 4.0f * sx, 13.0f * sy, 2.4f);
+            }
+        }
+        break;
+    case EYES_ACCENT_TEARS:
+        accent_line(a, 0, -30, 0, -6, 1.6f);
+        a->nverts = 3;
+        a->verts[0][0] = 0; a->verts[0][1] = -4;
+        a->verts[1][0] = -6; a->verts[1][1] = 8;
+        a->verts[2][0] = 6; a->verts[2][1] = 8;
+        accent_disc(a, 0, 9, 6.0f);
+        accent_disc(a, 5, 27, 3.4f);
+        break;
+    case EYES_ACCENT_STRESS:
+        accent_line(a, -12, -4, -8, 12, 2.0f);
+        accent_line(a, 0, -8, 0, 12, 2.0f);
+        accent_line(a, 12, -4, 8, 12, 2.0f);
+        break;
+    case EYES_ACCENT_EYEBAGS:
+        for (int row = 0; row < 2; row++) {
+            float y = -6.0f + 8.0f * (float)row, k = 1.0f - 0.25f * (float)row;
+            accent_line(a, -30.0f * k, y - 2, -15.0f * k, y + 3, 1.8f);
+            accent_line(a, -15.0f * k, y + 3, 0, y + 5, 1.8f);
+            accent_line(a, 0, y + 5, 15.0f * k, y + 3, 1.8f);
+            accent_line(a, 15.0f * k, y + 3, 30.0f * k, y - 2, 1.8f);
+        }
+        break;
+    case EYES_ACCENT_TONGUE:
+        if (glass) { /* a rounded pink tongue */
+            accent_line(a, 0, -8, 0, 8, 17.0f);
+            accent_disc(a, 0, 12, 8.5f);
+            break;
+        }
+        accent_line(a, 0, -14, 0, 4, 8.0f);
+        accent_disc(a, 0, 6, 8.0f);
+        accent_line(a, 0, -12, 0, 12, 1.2f);
+        break;
+    case EYES_ACCENT_GLITCH:
+        accent_line(a, -36, -16, -12, -16, 2.6f);
+        accent_line(a, 6, -8, 36, -8, 2.6f);
+        accent_line(a, -30, 2, -2, 2, 2.6f);
+        accent_line(a, 10, 12, 34, 12, 2.6f);
+        accent_line(a, -22, 20, 4, 20, 2.6f);
+        break;
+    case EYES_ACCENT_TOP_RAYS:
+        accent_line(a, -26, 8, -36, -22, 3.2f);
+        accent_line(a, 0, 0, 0, -34, 3.2f);
+        accent_line(a, 26, 8, 36, -22, 3.2f);
+        break;
     case EYES_ACCENT_ZZZ:
-        accent_z(a, -10, 11, 4);
-        accent_z(a, 0, 0, 5);
-        accent_z(a, 11, -13, 6);
+        accent_z(a, -42, 12, 9);
+        accent_z(a, 0, -4, 13);
+        accent_z(a, 44, -24, 18);
         break;
     case EYES_ACCENT_CLOUDS:
-        accent_disc(a, -9, 2, 8);
-        accent_disc(a, 1, -3, 10);
-        accent_disc(a, 11, 2, 8);
-        accent_disc(a, 1, 5, 7);
-        accent_disc(a, -12, 15, 3);
-        accent_disc(a, -18, 20, 1.5f);
+        accent_disc(a, -20, 4, 17);
+        accent_disc(a, 2, -7, 22);
+        accent_disc(a, 24, 4, 17);
+        accent_disc(a, 2, 11, 15);
         break;
     }
 }
@@ -1745,7 +2278,7 @@ static void paint_accent(const eyes_raster_pose_t *pose, int rotation, eyes_spri
     accent_box_t a;
     if (!accent_box(&g, pose, &a)) return;
     accent_ink_t ink;
-    setup_accent_ink(&ink, pose->accent);
+    setup_accent_ink(&ink, pose->accent, pose->shape == EYES_SHAPE_GLASS);
     int32_t x0, x1, y0, y1;
     float m[4];
     rotate_rect(rotation, (int32_t)floorf(a.cx - a.hw), (int32_t)floorf(a.cy - a.hh),
@@ -1768,6 +2301,10 @@ static void paint_accent(const eyes_raster_pose_t *pose, int rotation, eyes_spri
             rgb_t color = s_orb_top;
             over(&color, s_orb_bottom, t);
             over(&color, s_orb_ring, 0.45f * cov(-d - 1.2f));
+            if (pose->shape == EYES_SHAPE_GLASS && pose->accent == EYES_ACCENT_TONGUE) {
+                color = (rgb_t){ 255.0f, 198.0f, 230.0f };
+                over(&color, (rgb_t){ 250.0f, 63.0f, 164.0f }, t);
+            }
             size_t k = (size_t)(v - s->oy) * (size_t)s->w + (size_t)(u - s->ox);
             rgb_t c = unpack(s->px[k]);
             over(&c, color, opacity * cov(d));
@@ -1776,8 +2313,10 @@ static void paint_accent(const eyes_raster_pose_t *pose, int rotation, eyes_spri
     }
 }
 
-void eyes_raster_render(const eyes_raster_pose_t *pose, int rotation, eyes_sprite_t *s)
+void eyes_raster_render(const eyes_raster_pose_t *in, int rotation, eyes_sprite_t *s)
 {
+    const eyes_raster_pose_t styled_pose = styled(in);
+    const eyes_raster_pose_t *pose = &styled_pose;
     ensure_colors();
     if (pose->shape == EYES_SHAPE_SPIRAL && pose->stripes > 0.0f && spiral_pose_settled(pose, rotation)) {
         render_spiral_spin(pose, rotation, s);

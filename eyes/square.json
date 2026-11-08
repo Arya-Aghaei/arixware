@@ -1,0 +1,1363 @@
+{
+ "pack": "square",
+ "title": "Square",
+ "style": "square",
+ "default_theme": "Cyan",
+ "reference": {
+  "image": "design/square-reference.svg",
+  "grid": {
+   "cols": 6,
+   "cell": [
+    256,
+    187
+   ]
+  },
+  "min_iou": 0.5
+ },
+ "fallbacks": {
+  "pleased": "happy",
+  "smile": "happy",
+  "big-smile": "excited",
+  "content": "tired",
+  "relaxed": "tired",
+  "blink": "sleeping",
+  "amazed": "excited",
+  "shy": "blushing",
+  "determined": "focused",
+  "sleeping-zzz": "sleeping"
+ },
+ "expressions": [
+  {
+   "id": "default",
+   "label": "Default (Idle)",
+   "left": {
+    "shape": "capsule",
+    "w": 0.94,
+    "h": 0.82,
+    "pupil": {
+     "size": 0
+    },
+    "glass": {
+     "w": 0.857,
+     "h": 0.61,
+     "corner": 0.789,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.026,
+      "slope": 0.026,
+      "bow": -0.052
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.275,
+      "y": -0.579
+     }
+    }
+   },
+   "right": {
+    "shape": "capsule",
+    "w": 0.94,
+    "h": 0.82,
+    "pupil": {
+     "size": 0
+    },
+    "glass": {
+     "w": 0.857,
+     "h": 0.61,
+     "corner": 0.806,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.026,
+      "slope": 0.026,
+      "bow": -0.052
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.275,
+      "y": -0.579
+     }
+    }
+   }
+  },
+  {
+   "id": "happy",
+   "label": "Happy",
+   "left": {
+    "shape": "arch",
+    "w": 0.95,
+    "h": 0.85,
+    "dir": 1,
+    "accent": "rays",
+    "glass": {
+     "w": 0.835,
+     "h": 0.525,
+     "corner": 0.05,
+     "round_top": 1.0,
+     "lid_gap": 0,
+     "bottom": {
+      "cover": -0.211,
+      "bow": 1.321
+     }
+    }
+   },
+   "right": "same"
+  },
+  {
+   "id": "excited",
+   "label": "Excited",
+   "left": {
+    "shape": "oval",
+    "w": 0.83,
+    "h": 1.03,
+    "accent": "sparkles",
+    "glass": {
+     "w": 0.857,
+     "h": 0.76,
+     "corner": 1.35,
+     "lid_gap": 0.15,
+     "top": {
+      "cover": 0.124,
+      "slope": 0.0,
+      "bow": -0.249
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.292,
+      "x": 0.0,
+      "y": -0.408
+     }
+    }
+   },
+   "right": "same"
+  },
+  {
+   "id": "laugh",
+   "label": "Laugh",
+   "left": {
+    "shape": "chevron",
+    "w": 0.63,
+    "h": 0.34,
+    "dir": 1,
+    "accent": "side_rays",
+    "glass": {
+     "orb": true,
+     "w": 0.63,
+     "h": 0.45
+    }
+   },
+   "right": {
+    "shape": "chevron",
+    "w": 0.63,
+    "h": 0.34,
+    "dir": -1,
+    "accent": "side_rays",
+    "glass": {
+     "orb": true,
+     "w": 0.63,
+     "h": 0.45
+    }
+   }
+  },
+  {
+   "id": "surprised",
+   "label": "Surprised",
+   "left": {
+    "shape": "oval",
+    "w": 0.78,
+    "h": 1.15,
+    "accent": "top_rays",
+    "glass": {
+     "w": 0.763,
+     "h": 0.977,
+     "corner": 1.0,
+     "round_top": 1.0,
+     "lid_gap": 0.077,
+     "lid_len": 0.927,
+     "top": {
+      "cover": 0.0,
+      "slope": 0.0,
+      "bow": -0.161
+     },
+     "pupil": {
+      "size": 0.328,
+      "x": 0.0,
+      "y": -0.271
+     }
+    }
+   },
+   "right": "same"
+  },
+  {
+   "id": "startled",
+   "label": "Startled",
+   "left": {
+    "shape": "capsule",
+    "w": 0.94,
+    "h": 1.02,
+    "accent": "side_rays",
+    "glass": {
+     "w": 0.763,
+     "h": 0.977,
+     "corner": 1.0,
+     "round_top": 1.0,
+     "lid_gap": 0.077,
+     "lid_len": 0.927,
+     "top": {
+      "cover": 0.0,
+      "slope": 0.0,
+      "bow": -0.161
+     },
+     "pupil": {
+      "size": 0.207,
+      "x": 0.0,
+      "y": -0.249
+     }
+    }
+   },
+   "right": "same"
+  },
+  {
+   "id": "curious",
+   "label": "Curious",
+   "left": {
+    "shape": "half",
+    "w": 0.87,
+    "h": 0.76,
+    "dir": -1,
+    "glass": {
+     "w": 0.857,
+     "h": 0.375,
+     "corner": 0.607,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.042,
+      "slope": 0.0,
+      "bow": -0.084
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.45,
+      "y": -0.598
+     }
+    }
+   },
+   "right": {
+    "shape": "capsule",
+    "w": 0.93,
+    "h": 0.94,
+    "accent": "question",
+    "glass": {
+     "w": 0.857,
+     "h": 0.76,
+     "corner": 1.35,
+     "lid_gap": 0.15,
+     "top": {
+      "cover": 0.124,
+      "slope": -0.0,
+      "bow": -0.249
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.344,
+      "x": -0.2,
+      "y": -0.38
+     }
+    }
+   }
+  },
+  {
+   "id": "confused",
+   "label": "Confused",
+   "left": {
+    "shape": "half",
+    "w": 0.86,
+    "h": 0.69,
+    "glass": {
+     "w": 0.857,
+     "h": 0.46,
+     "corner": 0.685,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.139,
+      "slope": -0.141,
+      "bow": -0.068
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.375,
+      "y": -0.561
+     }
+    }
+   },
+   "right": {
+    "shape": "worried",
+    "w": 0.95,
+    "h": 0.92,
+    "accent": "question",
+    "glass": {
+     "w": 0.857,
+     "h": 0.653,
+     "corner": 0.763,
+     "lid_gap": 0.225,
+     "top": {
+      "cover": 0.081,
+      "slope": -0.115,
+      "bow": -0.048
+     },
+     "lid_len": 1.025,
+     "pupil": {
+      "size": 0.4,
+      "x": -0.0,
+      "y": -0.655
+     }
+    }
+   }
+  },
+  {
+   "id": "thinking",
+   "label": "Thinking",
+   "left": {
+    "shape": "half",
+    "w": 0.93,
+    "h": 0.72,
+    "glass": {
+     "w": 0.857,
+     "h": 0.364,
+     "corner": 0.607,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.058,
+      "slope": -0.038,
+      "bow": -0.087
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.5,
+      "y": -0.602
+     }
+    }
+   },
+   "right": {
+    "shape": "capsule",
+    "w": 0.84,
+    "h": 0.78,
+    "accent": "ellipsis",
+    "glass": {
+     "w": 0.857,
+     "h": 0.664,
+     "corner": 0.85,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.088,
+      "slope": 0.128,
+      "bow": -0.047
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.5,
+      "y": -0.452
+     }
+    }
+   }
+  },
+  {
+   "id": "realization",
+   "label": "Realization",
+   "left": {
+    "shape": "capsule",
+    "w": 0.88,
+    "h": 0.84,
+    "glass": {
+     "w": 0.857,
+     "h": 0.61,
+     "corner": 0.806,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.026,
+      "slope": -0.026,
+      "bow": -0.052
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.425,
+      "y": -0.579
+     }
+    }
+   },
+   "right": {
+    "shape": "capsule",
+    "w": 0.92,
+    "h": 0.96,
+    "accent": "bulb",
+    "glass": {
+     "w": 0.857,
+     "h": 0.76,
+     "corner": 1.35,
+     "lid_gap": 0.15,
+     "top": {
+      "cover": 0.124,
+      "slope": -0.0,
+      "bow": -0.249
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.272,
+      "x": -0.0,
+      "y": -0.437
+     }
+    }
+   }
+  },
+  {
+   "id": "skeptical",
+   "label": "Skeptical",
+   "left": {
+    "shape": "half",
+    "w": 0.88,
+    "h": 0.63,
+    "glass": {
+     "w": 0.857,
+     "h": 0.321,
+     "corner": 0.572,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.082,
+      "slope": -0.051,
+      "bow": -0.098
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.375,
+      "y": -0.516
+     }
+    }
+   },
+   "right": {
+    "shape": "slope",
+    "w": 0.96,
+    "h": 0.98,
+    "dir": -1,
+    "glass": {
+     "w": 0.857,
+     "h": 0.771,
+     "corner": 0.728,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.173,
+      "slope": -0.308,
+      "bow": -0.041
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.425,
+      "y": -0.25
+     }
+    }
+   }
+  },
+  {
+   "id": "suspicious",
+   "label": "Suspicious",
+   "left": {
+    "shape": "slope",
+    "w": 0.95,
+    "h": 0.76,
+    "dir": 1,
+    "glass": {
+     "w": 0.857,
+     "h": 0.653,
+     "corner": 0.72,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.122,
+      "slope": 0.179,
+      "bow": -0.048
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.325,
+      "y": -0.475
+     }
+    }
+   },
+   "right": {
+    "shape": "slope",
+    "w": 0.95,
+    "h": 0.76,
+    "dir": 1,
+    "glass": {
+     "w": 0.857,
+     "h": 0.653,
+     "corner": 0.841,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.122,
+      "slope": 0.179,
+      "bow": -0.048
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.325,
+      "y": -0.475
+     }
+    }
+   }
+  },
+  {
+   "id": "focused",
+   "label": "Focused",
+   "left": {
+    "shape": "slope",
+    "w": 0.91,
+    "h": 0.87,
+    "dir": 1,
+    "glass": {
+     "w": 0.857,
+     "h": 0.653,
+     "corner": 0.72,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.122,
+      "slope": 0.179,
+      "bow": -0.048
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.28,
+      "x": 0.175,
+      "y": -0.475
+     }
+    },
+    "accent": "target"
+   },
+   "right": {
+    "shape": "slope",
+    "w": 0.91,
+    "h": 0.87,
+    "dir": 1,
+    "glass": {
+     "w": 0.857,
+     "h": 0.653,
+     "corner": 0.841,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.122,
+      "slope": 0.179,
+      "bow": -0.048
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.28,
+      "x": 0.175,
+      "y": -0.475
+     }
+    },
+    "accent": "target"
+   }
+  },
+  {
+   "id": "angry",
+   "label": "Angry",
+   "left": {
+    "shape": "slope",
+    "w": 0.98,
+    "h": 0.95,
+    "dir": 1,
+    "glass": {
+     "w": 0.857,
+     "h": 0.717,
+     "corner": 0.668,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.201,
+      "slope": 0.333,
+      "bow": -0.044
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.32,
+      "x": 0.3,
+      "y": -0.343
+     }
+    }
+   },
+   "right": {
+    "shape": "slope",
+    "w": 0.98,
+    "h": 0.95,
+    "dir": 1,
+    "glass": {
+     "w": 0.857,
+     "h": 0.717,
+     "corner": 0.893,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.201,
+      "slope": 0.333,
+      "bow": -0.044
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.32,
+      "x": 0.3,
+      "y": -0.343
+     }
+    }
+   }
+  },
+  {
+   "id": "annoyed",
+   "label": "Annoyed",
+   "left": {
+    "shape": "half",
+    "w": 0.92,
+    "h": 0.61,
+    "glass": {
+     "w": 0.857,
+     "h": 0.375,
+     "corner": 0.607,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.042,
+      "slope": 0.0,
+      "bow": -0.084
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.425,
+      "y": -0.598
+     }
+    }
+   },
+   "right": "same"
+  },
+  {
+   "id": "worried",
+   "label": "Worried",
+   "left": {
+    "shape": "worried",
+    "w": 0.98,
+    "h": 1.08,
+    "glass": {
+     "w": 0.857,
+     "h": 0.653,
+     "corner": 0.841,
+     "lid_gap": 0.225,
+     "top": {
+      "cover": 0.081,
+      "slope": -0.115,
+      "bow": -0.048
+     },
+     "lid_len": 1.025,
+     "pupil": {
+      "size": 0.34,
+      "x": 0.0,
+      "y": -0.475
+     }
+    }
+   },
+   "right": {
+    "shape": "worried",
+    "w": 0.98,
+    "h": 1.08,
+    "glass": {
+     "w": 0.857,
+     "h": 0.653,
+     "corner": 0.763,
+     "lid_gap": 0.225,
+     "top": {
+      "cover": 0.081,
+      "slope": -0.115,
+      "bow": -0.048
+     },
+     "lid_len": 1.025,
+     "pupil": {
+      "size": 0.34,
+      "x": -0.0,
+      "y": -0.475
+     }
+    },
+    "accent": "drop"
+   }
+  },
+  {
+   "id": "nervous",
+   "label": "Nervous",
+   "left": {
+    "shape": "capsule",
+    "w": 0.89,
+    "h": 0.83,
+    "glass": {
+     "w": 0.857,
+     "h": 0.642,
+     "corner": 0.754,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.083,
+      "slope": 0.115,
+      "bow": -0.049
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.32,
+      "x": 0.175,
+      "y": -0.5
+     }
+    }
+   },
+   "right": {
+    "shape": "capsule",
+    "w": 0.89,
+    "h": 0.83,
+    "glass": {
+     "w": 0.857,
+     "h": 0.642,
+     "corner": 0.832,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.083,
+      "slope": 0.115,
+      "bow": -0.049
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.32,
+      "x": 0.175,
+      "y": -0.5
+     }
+    },
+    "accent": "stress"
+   }
+  },
+  {
+   "id": "sad",
+   "label": "Sad",
+   "left": {
+    "shape": "arch",
+    "w": 0.98,
+    "h": 0.87,
+    "dir": 2,
+    "glass": {
+     "w": 0.857,
+     "h": 0.546,
+     "corner": 0.754,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.137,
+      "slope": -0.167,
+      "bow": -0.058
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.332,
+      "x": 0.2,
+      "y": -0.569
+     }
+    }
+   },
+   "right": {
+    "shape": "arch",
+    "w": 0.98,
+    "h": 0.87,
+    "dir": 2,
+    "glass": {
+     "w": 0.857,
+     "h": 0.546,
+     "corner": 0.642,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.137,
+      "slope": -0.167,
+      "bow": -0.058
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.332,
+      "x": 0.2,
+      "y": -0.569
+     }
+    }
+   }
+  },
+  {
+   "id": "crying",
+   "label": "Crying",
+   "left": {
+    "shape": "worried",
+    "w": 0.93,
+    "h": 0.94,
+    "accent": "tears",
+    "glass": {
+     "w": 0.857,
+     "h": 0.6,
+     "corner": 0.798,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.124,
+      "slope": -0.167,
+      "bow": -0.053
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.175,
+      "y": -0.595
+     }
+    }
+   },
+   "right": {
+    "shape": "worried",
+    "w": 0.93,
+    "h": 0.94,
+    "accent": "tears",
+    "glass": {
+     "w": 0.857,
+     "h": 0.6,
+     "corner": 0.685,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.124,
+      "slope": -0.167,
+      "bow": -0.053
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.175,
+      "y": -0.595
+     }
+    }
+   }
+  },
+  {
+   "id": "disappointed",
+   "label": "Disappointed",
+   "left": {
+    "shape": "half",
+    "w": 0.89,
+    "h": 0.66,
+    "glass": {
+     "w": 0.857,
+     "h": 0.321,
+     "corner": 0.564,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.049,
+      "slope": 0.0,
+      "bow": -0.098
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.425,
+      "y": -0.531
+     }
+    }
+   },
+   "right": "same"
+  },
+  {
+   "id": "tired",
+   "label": "Tired",
+   "left": {
+    "shape": "half",
+    "w": 0.92,
+    "h": 0.53,
+    "accent": "eyebags",
+    "glass": {
+     "w": 0.857,
+     "h": 0.3,
+     "corner": 0.546,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.053,
+      "slope": 0.0,
+      "bow": -0.105
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.25,
+      "y": -0.496
+     }
+    }
+   },
+   "right": "same"
+  },
+  {
+   "id": "sleeping",
+   "label": "Sleeping",
+   "left": {
+    "shape": "sleep",
+    "w": 0.94,
+    "h": 0.38,
+    "glass": {
+     "w": 0.835,
+     "h": 0.146,
+     "corner": 0.05,
+     "lid_gap": 0,
+     "top": {
+      "cover": -0.363,
+      "slope": 0.0,
+      "bow": 2.271
+     },
+     "bottom": {
+      "cover": 1.135,
+      "slope": 0.0,
+      "bow": -2.271
+     }
+    }
+   },
+   "right": {
+    "shape": "sleep",
+    "w": 0.94,
+    "h": 0.38,
+    "glass": {
+     "w": 0.835,
+     "h": 0.146,
+     "corner": 0.05,
+     "lid_gap": 0,
+     "top": {
+      "cover": -0.363,
+      "slope": 0.0,
+      "bow": 2.271
+     },
+     "bottom": {
+      "cover": 1.135,
+      "slope": 0.0,
+      "bow": -2.271
+     }
+    },
+    "accent": "zzz"
+   }
+  },
+  {
+   "id": "dreamy",
+   "label": "Dreamy",
+   "left": {
+    "shape": "capsule",
+    "w": 0.88,
+    "h": 0.82,
+    "accent": "clouds",
+    "glass": {
+     "w": 0.857,
+     "h": 0.471,
+     "corner": 0.694,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.068,
+      "slope": -0.064,
+      "bow": -0.067
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.3,
+      "x": 0.075,
+      "y": -0.691
+     }
+    }
+   },
+   "right": {
+    "shape": "capsule",
+    "w": 0.88,
+    "h": 0.82,
+    "accent": "clouds",
+    "glass": {
+     "w": 0.857,
+     "h": 0.471,
+     "corner": 0.65,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.068,
+      "slope": -0.064,
+      "bow": -0.067
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.3,
+      "x": 0.075,
+      "y": -0.691
+     }
+    }
+   }
+  },
+  {
+   "id": "hypnotized",
+   "label": "Hypnotized",
+   "left": {
+    "shape": "spiral",
+    "w": 0.9,
+    "h": 0.94,
+    "dir": 1,
+    "glass": {
+     "w": 0.857,
+     "h": 0.675,
+     "corner": 0.85,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.023,
+      "slope": 0.0,
+      "bow": -0.047
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.62,
+      "x": 0.0,
+      "y": -0.175,
+      "kind": "rings"
+     }
+    }
+   },
+   "right": "same"
+  },
+  {
+   "id": "love",
+   "label": "Love",
+   "left": {
+    "shape": "heart",
+    "w": 0.87,
+    "h": 0.83,
+    "accent": "hearts",
+    "glass": {
+     "w": 0.857,
+     "h": 0.621,
+     "corner": 0.78,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.043,
+      "slope": 0.051,
+      "bow": -0.051
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.55,
+      "x": 0.325,
+      "y": -0.483,
+      "kind": "heart"
+     }
+    }
+   },
+   "right": {
+    "shape": "heart",
+    "w": 0.87,
+    "h": 0.83,
+    "accent": "hearts",
+    "glass": {
+     "w": 0.857,
+     "h": 0.621,
+     "corner": 0.815,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.043,
+      "slope": 0.051,
+      "bow": -0.051
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.55,
+      "x": -0.325,
+      "y": -0.483,
+      "kind": "heart"
+     }
+    }
+   }
+  },
+  {
+   "id": "blushing",
+   "label": "Blushing",
+   "left": {
+    "shape": "capsule",
+    "w": 0.87,
+    "h": 0.79,
+    "accent": "blush",
+    "glass": {
+     "w": 0.857,
+     "h": 0.616,
+     "corner": 0.798,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.026,
+      "slope": 0.013,
+      "bow": -0.051
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.325,
+      "y": -0.565
+     }
+    }
+   },
+   "right": {
+    "shape": "capsule",
+    "w": 0.87,
+    "h": 0.79,
+    "accent": "blush",
+    "glass": {
+     "w": 0.857,
+     "h": 0.616,
+     "corner": 0.806,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.026,
+      "slope": 0.013,
+      "bow": -0.051
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.325,
+      "y": -0.565
+     }
+    }
+   }
+  },
+  {
+   "id": "playful",
+   "label": "Playful",
+   "left": {
+    "shape": "half",
+    "w": 0.86,
+    "h": 0.71,
+    "dir": -1,
+    "accent": "sparkles",
+    "glass": {
+     "w": 0.72,
+     "h": 0.4,
+     "corner": 0.45,
+     "round_top": 1.0,
+     "lid_gap": 0,
+     "bottom": {
+      "cover": -0.2,
+      "bow": 1.45
+     }
+    }
+   },
+   "right": {
+    "shape": "capsule",
+    "w": 0.92,
+    "h": 0.87,
+    "accent": "tongue",
+    "glass": {
+     "w": 0.84,
+     "h": 0.6,
+     "corner": 0.78,
+     "lid_gap": 0.26,
+     "lid_len": 1.15,
+     "top": {
+      "cover": 0.05,
+      "slope": -0.05,
+      "bow": -0.04
+     },
+     "pupil": {
+      "size": 0.42,
+      "x": -0.2,
+      "y": -0.55
+     }
+    }
+   },
+   "hand_made": true
+  },
+  {
+   "id": "wink-left",
+   "label": "Wink Left",
+   "left": {
+    "shape": "arch",
+    "w": 0.93,
+    "h": 0.78,
+    "dir": 1,
+    "accent": "rays",
+    "glass": {
+     "w": 0.835,
+     "h": 0.525,
+     "corner": 0.05,
+     "round_top": 1.0,
+     "lid_gap": 0,
+     "bottom": {
+      "cover": -0.211,
+      "bow": 1.321
+     }
+    }
+   },
+   "right": {
+    "shape": "capsule",
+    "w": 0.89,
+    "h": 0.88,
+    "glass": {
+     "w": 0.857,
+     "h": 0.589,
+     "corner": 0.78,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.027,
+      "slope": -0.0,
+      "bow": -0.053
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.175,
+      "y": -0.636
+     }
+    }
+   }
+  },
+  {
+   "id": "wink-right",
+   "label": "Wink Right",
+   "left": {
+    "shape": "capsule",
+    "w": 0.89,
+    "h": 0.88,
+    "glass": {
+     "w": 0.857,
+     "h": 0.589,
+     "corner": 0.78,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.027,
+      "slope": 0.0,
+      "bow": -0.053
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.175,
+      "y": -0.636
+     }
+    }
+   },
+   "right": {
+    "shape": "arch",
+    "w": 0.93,
+    "h": 0.78,
+    "dir": 1,
+    "accent": "rays",
+    "glass": {
+     "w": 0.835,
+     "h": 0.525,
+     "corner": 0.05,
+     "round_top": 1.0,
+     "lid_gap": 0,
+     "bottom": {
+      "cover": -0.211,
+      "bow": 1.321
+     }
+    }
+   }
+  },
+  {
+   "id": "glitch",
+   "label": "Glitch",
+   "left": {
+    "shape": "slope",
+    "w": 0.91,
+    "h": 0.81,
+    "dir": 1,
+    "accent": "glitch",
+    "glass": {
+     "w": 0.857,
+     "h": 0.653,
+     "corner": 0.72,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.122,
+      "slope": 0.179,
+      "bow": -0.048
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.275,
+      "y": -0.475
+     }
+    }
+   },
+   "right": {
+    "shape": "slope",
+    "w": 0.91,
+    "h": 0.81,
+    "dir": 1,
+    "accent": "glitch",
+    "glass": {
+     "w": 0.857,
+     "h": 0.653,
+     "corner": 0.841,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.122,
+      "slope": 0.179,
+      "bow": -0.048
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.275,
+      "y": -0.475
+     }
+    }
+   }
+  },
+  {
+   "id": "smug",
+   "label": "Smug",
+   "left": {
+    "shape": "half",
+    "w": 0.86,
+    "h": 0.62,
+    "glass": {
+     "w": 0.857,
+     "h": 0.343,
+     "corner": 0.59,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.108,
+      "slope": -0.077,
+      "bow": -0.092
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.4,
+      "x": 0.475,
+      "y": -0.528
+     }
+    }
+   },
+   "right": {
+    "shape": "capsule",
+    "w": 0.94,
+    "h": 0.87,
+    "accent": "star",
+    "glass": {
+     "w": 0.857,
+     "h": 0.717,
+     "corner": 0.711,
+     "lid_gap": 0.275,
+     "top": {
+      "cover": 0.164,
+      "slope": -0.269,
+      "bow": -0.044
+     },
+     "lid_len": 1.15,
+     "pupil": {
+      "size": 0.3,
+      "x": 0.225,
+      "y": -0.343
+     }
+    }
+   }
+  }
+ ]
+}

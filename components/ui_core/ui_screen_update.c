@@ -1,7 +1,6 @@
 #include "ui_screen_update.h"
 #include "ui_draw.h"
 #include "fonts.h"
-#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -20,45 +19,6 @@ static int s_percent;
 static char s_version[32];
 static char s_reason[64];
 
-/* One glossy eye orb as on the eyes screen: dark rim with an orange glow, cream-to-amber
- * gradient, a halftone dot band along the bottom and a slanted highlight. */
-static void draw_orb(lv_layer_t *layer, int cx, int cy, int r, bool peak, bool dim)
-{
-    ui_draw_halo(layer, cx, cy, r, r + (peak ? 26 : 18), UI_COLOR_PRIMARY, dim ? 40 : (peak ? 150 : 100));
-    ui_draw_disc(layer, cx, cy, r + 2, 0x5A2A0A, LV_OPA_COVER);
-    ui_draw_ring(layer, cx, cy, r + 3, 2, UI_COLOR_PRIMARY, LV_OPA_COVER);
-
-    int in = r - 7;
-    lv_draw_rect_dsc_t rect;
-    lv_draw_rect_dsc_init(&rect);
-    rect.radius = LV_RADIUS_CIRCLE;
-    rect.bg_opa = LV_OPA_COVER;
-    rect.bg_grad.dir = LV_GRAD_DIR_VER;
-    rect.bg_grad.stops_count = 2;
-    rect.bg_grad.stops[0].color = lv_color_hex(dim ? 0xB89A6A : 0xFFF1CF);
-    rect.bg_grad.stops[0].opa = LV_OPA_COVER;
-    rect.bg_grad.stops[0].frac = 0;
-    rect.bg_grad.stops[1].color = lv_color_hex(dim ? 0x9A5A1A : 0xFF9A14);
-    rect.bg_grad.stops[1].opa = LV_OPA_COVER;
-    rect.bg_grad.stops[1].frac = 255;
-    lv_area_t area = { cx - in, cy - in, cx + in, cy + in };
-    lv_draw_rect(layer, &rect, &area);
-
-    /* Halftone: dots grow towards the bottom edge, clipped to the orb. */
-    for (int row = 0; row < 5; row++) {
-        int y = cy + in * 2 / 10 + row * 9;
-        int dot = 1 + row * 4 / 5 + (row > 2 ? 1 : 0);
-        for (int x = cx - in; x <= cx + in; x += 11) {
-            int dx = x - cx, dy = y - cy;
-            if (dx * dx + dy * dy <= (in - 3 - dot) * (in - 3 - dot)) {
-                ui_draw_disc(layer, x + (row & 1) * 5, y, dot, 0xFFC94A, LV_OPA_70);
-            }
-        }
-    }
-    ui_draw_arc(layer, cx, cy, in * 3 / 4, 7, 215, 250, 0xFFFFFF, LV_OPA_70);
-    ui_draw_disc(layer, cx - in * 3 / 5, cy - in * 2 / 5 + 2, 4, 0xFFFFFF, LV_OPA_70);
-}
-
 static void draw_face(lv_layer_t *layer, bool peak)
 {
     bool failed = s_mode == MODE_FAILED;
@@ -72,8 +32,8 @@ static void draw_face(lv_layer_t *layer, bool peak)
                     UI_COLOR_PRIMARY, LV_OPA_COVER);
     }
 
-    draw_orb(layer, UI_FACE_CX - ORB_DX, ORB_Y, ORB_R, peak, failed);
-    draw_orb(layer, UI_FACE_CX + ORB_DX, ORB_Y, ORB_R, peak, failed);
+    ui_draw_eye(layer, UI_FACE_CX - ORB_DX, ORB_Y, ORB_R, eyes_themes_get(eyes_themes_selected()), eyes_styles_selected(), peak, failed);
+    ui_draw_eye(layer, UI_FACE_CX + ORB_DX, ORB_Y, ORB_R, eyes_themes_get(eyes_themes_selected()), eyes_styles_selected(), peak, failed);
 
     const char *title = failed ? "UPDATE FAILED" : (s_mode == MODE_DONE ? "UPDATED" : "UPDATING");
     ui_draw_text(layer, title, &fredoka_medium_26, UI_FACE_CX, 208, UI_COLOR_SECONDARY, LV_OPA_COVER);

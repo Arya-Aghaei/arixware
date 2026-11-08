@@ -2,6 +2,7 @@
 #include "lvgl.h"
 #include "images.h"
 #include "ui_panel.h"
+#include "eyes_theme.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -62,3 +63,9 @@ void ui_draw_arc(lv_layer_t *layer, int cx, int cy, int r, int width, int start_
 void ui_draw_pill(lv_layer_t *layer, int x1, int y1, int x2, int y2, uint32_t fill, lv_opa_t fill_opa,
                   uint32_t border, int border_width);
 void ui_draw_triangle(lv_layer_t *layer, int x1, int y1, int x2, int y2, int x3, int y3, uint32_t color);
+
+/** A glossy eye orb in the colors of `theme` (the eyes screen's material): glow, rim, gradient body,
+ *  halftone band and highlight. `peak` widens the glow; `dim` fades it toward grey. */
+void ui_draw_orb(lv_layer_t *layer, int cx, int cy, int r, const eyes_theme_t *theme, bool peak, bool dim);
+/** The same in the selected eye style (round orb or rounded square). */
+void ui_draw_eye(lv_layer_t *layer, int cx, int cy, int r, const eyes_theme_t *theme, int style, bool peak, bool dim);

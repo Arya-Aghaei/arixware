@@ -1,5 +1,7 @@
 #include "net_remote.h"
 #include "net_ota.h"
+#include "eyes_theme.h"
+#include "eyes_expression.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +15,6 @@
 #define CODE_DIGITS 6
 #define MAX_FAILURES 5
 #define LOCKOUT_US (60 * 1000000LL)
-#define MOOD_COUNT 30
 
 static const char *TAG = "net_remote";
 
@@ -168,6 +169,31 @@ static cJSON *state_json(void)
     cJSON_AddBoolToObject(root, "dnd", st.dnd);
     cJSON_AddBoolToObject(root, "asleep", st.asleep);
     cJSON_AddNumberToObject(root, "mood", st.mood);
+    cJSON *eyes = cJSON_AddObjectToObject(root, "eyes");
+    cJSON_AddNumberToObject(eyes, "theme", st.eyes_theme);
+    cJSON_AddNumberToObject(eyes, "style", st.eyes_style);
+    cJSON *mood_list = cJSON_AddArrayToObject(eyes, "moods");
+    for (int n = 0; n < eyes_pack_mood_count(st.eyes_style); n++) {
+        int mood = eyes_pack_mood(st.eyes_style, n);
+        cJSON *item = cJSON_CreateObject();
+        cJSON_AddNumberToObject(item, "i", mood);
+        cJSON_AddStringToObject(item, "id", eyes_mood_id(mood));
+        cJSON_AddStringToObject(item, "label", eyes_mood_label(mood));
+        cJSON_AddItemToArray(mood_list, item);
+    }
+    cJSON *styles = cJSON_AddArrayToObject(eyes, "styles");
+    for (int i = 0; i < eyes_styles_count(); i++) {
+        cJSON_AddItemToArray(styles, cJSON_CreateString(eyes_styles_name(i)));
+    }
+    cJSON *themes = cJSON_AddArrayToObject(eyes, "themes");
+    for (int i = 0; i < eyes_themes_count(); i++) {
+        char color[8];
+        snprintf(color, sizeof(color), "#%06X", (unsigned)eyes_themes_get(i)->fill_bottom);
+        cJSON *item = cJSON_CreateObject();
+        cJSON_AddStringToObject(item, "name", eyes_themes_name(i));
+        cJSON_AddStringToObject(item, "color", color);
+        cJSON_AddItemToArray(themes, item);
+    }
     cJSON *alarm = cJSON_AddObjectToObject(root, "alarm");
     cJSON_AddNumberToObject(alarm, "hour", st.alarm.hour);
     cJSON_AddNumberToObject(alarm, "minute", st.alarm.minute);
@@ -240,7 +266,7 @@ static esp_err_t command_handler(httpd_req_t *req)
     }
 
     int value;
-    if (number(root, "mood", &value) && s_ops.set_mood && value >= 0 && value < MOOD_COUNT) {
+    if (number(root, "mood", &value) && s_ops.set_mood && value >= 0 && value < EYES_EXPRESSION_COUNT) {
         s_ops.set_mood(value);
     }
     if (number(root, "brightness", &value) && s_ops.set_brightness) {
@@ -248,6 +274,12 @@ static esp_err_t command_handler(httpd_req_t *req)
     }
     if (number(root, "volume", &value) && s_ops.set_volume) {
         s_ops.set_volume(clamp(value, 0, 100));
+    }
+    if (number(root, "eyesTheme", &value) && s_ops.set_eyes_theme && value >= 0 && value < eyes_themes_count()) {
+        s_ops.set_eyes_theme(value);
+    }
+    if (number(root, "eyesStyle", &value) && s_ops.set_eyes_style && value >= 0 && value < eyes_styles_count()) {
+        s_ops.set_eyes_style(value);
     }
     const cJSON *dnd = cJSON_GetObjectItemCaseSensitive(root, "dnd");
     if (cJSON_IsBool(dnd) && s_ops.set_dnd) {

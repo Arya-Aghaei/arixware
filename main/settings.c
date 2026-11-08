@@ -3,6 +3,8 @@
 #include "ui_tools.h"
 #include "net_remote.h"
 #include "net_ota.h"
+#include "eyes_renderer.h"
+#include "eyes_theme.h"
 #include "audio.h"
 #include "bsp/esp-bsp.h"
 #include "nvs.h"
@@ -81,6 +83,34 @@ void settings_set_standby(bool standby)
     }
 }
 
+/* Caller holds the display lock. */
+static void set_eyes_theme(int index)
+{
+    eyes_themes_select(index);
+    eyes_renderer_refresh_theme();
+    save_value("eyes", eyes_themes_selected());
+}
+
+static void set_eyes_style(int index)
+{
+    eyes_styles_select(index);
+    /* Each style has its own default color: glass is icy blue, the orbs are amber. */
+    eyes_themes_select(eyes_styles_default_theme(eyes_styles_selected()));
+    save_value("eyes", eyes_themes_selected());
+    eyes_renderer_refresh_theme();
+    save_value("estyle", eyes_styles_selected());
+}
+
+static int get_eyes_style(void)
+{
+    return eyes_styles_selected();
+}
+
+static int get_eyes_theme(void)
+{
+    return eyes_themes_selected();
+}
+
 static void request_sleep(void)
 {
     settings_set_standby(true);
@@ -100,9 +130,25 @@ void settings_restore_brightness(void)
 
 /* ---- Phone remote (see net_remote.h). The HTTP task takes the display lock for every UI call. */
 
+static void remote_set_eyes_theme(int index)
+{
+    bsp_display_lock(-1);
+    set_eyes_theme(index);
+    bsp_display_unlock();
+}
+
+static void remote_set_eyes_style(int index)
+{
+    bsp_display_lock(-1);
+    set_eyes_style(index);
+    bsp_display_unlock();
+}
+
 static void remote_get_state(net_remote_state_t *state)
 {
     bsp_display_lock(-1);
+    state->eyes_theme = eyes_themes_selected();
+    state->eyes_style = eyes_styles_selected();
     state->brightness = s_brightness;
     state->volume = audio_get_volume();
     state->dnd = s_dnd;
@@ -234,6 +280,12 @@ void settings_init(void)
         if (nvs_get_u8(handle, "dnd", &value) == ESP_OK && value <= 1) {
             s_dnd = value;
         }
+        if (nvs_get_u8(handle, "eyes", &value) == ESP_OK) {
+            eyes_themes_select(value);
+        }
+        if (nvs_get_u8(handle, "estyle", &value) == ESP_OK) {
+            eyes_styles_select(value);
+        }
         nvs_close(handle);
     }
     audio_set_muted(s_dnd);
@@ -246,6 +298,10 @@ void settings_init(void)
         .set_dnd = set_dnd,
         .sleep = request_sleep,
         .wake = request_wake,
+        .get_eyes_theme = get_eyes_theme,
+        .set_eyes_theme = set_eyes_theme,
+        .get_eyes_style = get_eyes_style,
+        .set_eyes_style = set_eyes_style,
     };
     ui_core_configure_settings(&controls);
     const net_remote_ops_t remote = {
@@ -256,6 +312,8 @@ void settings_init(void)
         .set_dnd = remote_set_dnd,
         .set_alarm = remote_set_alarm,
         .set_timer = remote_set_timer,
+        .set_eyes_theme = remote_set_eyes_theme,
+        .set_eyes_style = remote_set_eyes_style,
         .sleep = remote_sleep,
         .wake = remote_wake,
     };

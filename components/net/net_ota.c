@@ -66,13 +66,13 @@ static void fail(const char *reason)
 
 /* Parses "v1.2.3" or "1.2.3-extra" into three numbers. Anything else (a bare git hash such as
  * "4ca4dd3-dirty" from an untagged local build) counts as 0.0.0. */
-static void parse_version(const char *text, int out[3])
+static bool parse_version(const char *text, int out[3])
 {
     out[0] = out[1] = out[2] = 0;
     if (*text == 'v' || *text == 'V') text++;
     char *end;
     long first = strtol(text, &end, 10);
-    if (end == text || *end != '.') return;
+    if (end == text || *end != '.') return false;
     out[0] = (int)first;
     text = end + 1;
     for (int i = 1; i < 3 && *text; i++) {
@@ -80,6 +80,7 @@ static void parse_version(const char *text, int out[3])
         if (*end != '.') break;
         text = end + 1;
     }
+    return true;
 }
 
 static bool is_newer(const char *remote, const char *local)
@@ -266,7 +267,10 @@ static void auto_task(void *unused)
     vTaskDelay(pdMS_TO_TICKS(120000));
     for (;;) {
         bool ran = false;
-        if (s_auto && !(s_ops.busy && s_ops.busy())) ran = start();
+        /* A local build (version is a git hash, not a release tag) never updates itself. */
+        int version[3];
+        bool release = parse_version(net_ota_running_version(), version);
+        if (s_auto && release && !(s_ops.busy && s_ops.busy())) ran = start();
         for (int minutes = ran ? 24 * 60 : 5; minutes > 0; minutes--) vTaskDelay(pdMS_TO_TICKS(60000));
     }
 }

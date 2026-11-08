@@ -313,3 +313,92 @@ void ui_draw_triangle(lv_layer_t *layer, int x1, int y1, int x2, int y2, int x3,
     dsc.opa = LV_OPA_COVER;
     lv_draw_triangle(layer, &dsc);
 }
+
+static uint32_t orb_color(uint32_t rgb, bool dim)
+{
+    return dim ? lv_color_to_u32(lv_color_mix(lv_color_hex(rgb), lv_color_hex(0x7A5A3A), 110)) & 0xFFFFFF : rgb;
+}
+
+void ui_draw_orb(lv_layer_t *layer, int cx, int cy, int r, const eyes_theme_t *theme, bool peak, bool dim)
+{
+    ui_draw_halo(layer, cx, cy, r, r + (peak ? 26 : 18), orb_color(theme->glow, dim), dim ? 40 : (peak ? 150 : 100));
+    ui_draw_disc(layer, cx, cy, r + 2, orb_color(theme->rim, dim), LV_OPA_COVER);
+    ui_draw_ring(layer, cx, cy, r + 3, 2, orb_color(theme->glow, dim), LV_OPA_COVER);
+
+    int in = r - 7;
+    lv_draw_rect_dsc_t rect;
+    lv_draw_rect_dsc_init(&rect);
+    rect.radius = LV_RADIUS_CIRCLE;
+    rect.bg_opa = LV_OPA_COVER;
+    rect.bg_grad.dir = LV_GRAD_DIR_VER;
+    rect.bg_grad.stops_count = 2;
+    rect.bg_grad.stops[0].color = lv_color_hex(orb_color(theme->fill_top, dim));
+    rect.bg_grad.stops[0].opa = LV_OPA_COVER;
+    rect.bg_grad.stops[0].frac = 0;
+    rect.bg_grad.stops[1].color = lv_color_hex(orb_color(theme->fill_bottom, dim));
+    rect.bg_grad.stops[1].opa = LV_OPA_COVER;
+    rect.bg_grad.stops[1].frac = 255;
+    lv_area_t area = { cx - in, cy - in, cx + in, cy + in };
+    lv_draw_rect(layer, &rect, &area);
+
+    /* Halftone: dots grow towards the bottom edge, clipped to the orb. */
+    for (int row = 0; row < 5; row++) {
+        int y = cy + in * 2 / 10 + row * (r / 6);
+        int dot = 1 + row * r / 60 + (row > 2 ? 1 : 0);
+        for (int x = cx - in; x <= cx + in; x += r / 5 + 1) {
+            int dx = x - cx, dy = y - cy;
+            if (dx * dx + dy * dy <= (in - 3 - dot) * (in - 3 - dot)) {
+                ui_draw_disc(layer, x + (row & 1) * (r / 10), y, dot, orb_color(theme->fill_mid, dim), LV_OPA_70);
+            }
+        }
+    }
+    ui_draw_arc(layer, cx, cy, in * 3 / 4, LV_MAX(3, r / 7), 215, 250, 0xFFFFFF, LV_OPA_70);
+    ui_draw_disc(layer, cx - in * 3 / 5, cy - in * 2 / 5 + 2, LV_MAX(2, r / 12), 0xFFFFFF, LV_OPA_70);
+}
+
+static void rounded(lv_layer_t *layer, int x0, int y0, int x1, int y1, int radius, uint32_t color, lv_opa_t opa)
+{
+    lv_draw_rect_dsc_t d;
+    lv_draw_rect_dsc_init(&d);
+    d.bg_color = lv_color_hex(color);
+    d.bg_opa = opa;
+    d.radius = radius;
+    lv_area_t a = { x0, y0, x1, y1 };
+    lv_draw_rect(layer, &d, &a);
+}
+
+void ui_draw_eye(lv_layer_t *layer, int cx, int cy, int r, const eyes_theme_t *theme, int style, bool peak, bool dim)
+{
+    if (style != 1) {
+        ui_draw_orb(layer, cx, cy, r, theme, peak, dim);
+        return;
+    }
+    /* Glass: a tall rounded body with a dark gap and a thin outline, a pupil under a lid. */
+    int hw = r * 62 / 100, hh = r * 88 / 100, rad = hw * 60 / 100;
+    for (int i = 4; i >= 1; i--) {
+        rounded(layer, cx - hw - 7 - i * 3, cy - hh - 7 - i * 3, cx + hw + 7 + i * 3, cy + hh + 7 + i * 3, rad + 7 + i * 3,
+                orb_color(theme->glow, dim), (lv_opa_t)((dim ? 10 : 22) * (5 - i) / 2));
+    }
+    rounded(layer, cx - hw - 8, cy - hh - 8, cx + hw + 8, cy + hh + 8, rad + 8, orb_color(theme->ring, dim), LV_OPA_COVER);
+    rounded(layer, cx - hw - 6, cy - hh - 6, cx + hw + 6, cy + hh + 6, rad + 6, 0x000000, LV_OPA_COVER);
+    lv_draw_rect_dsc_t body;
+    lv_draw_rect_dsc_init(&body);
+    body.radius = rad;
+    body.bg_opa = LV_OPA_COVER;
+    body.bg_grad.dir = LV_GRAD_DIR_VER;
+    body.bg_grad.stops_count = 2;
+    body.bg_grad.stops[0].color = lv_color_hex(orb_color(theme->fill_top, dim));
+    body.bg_grad.stops[0].opa = LV_OPA_COVER;
+    body.bg_grad.stops[0].frac = 0;
+    body.bg_grad.stops[1].color = lv_color_hex(orb_color(theme->fill_bottom, dim));
+    body.bg_grad.stops[1].opa = LV_OPA_COVER;
+    body.bg_grad.stops[1].frac = 255;
+    lv_area_t area = { cx - hw, cy - hh, cx + hw, cy + hh };
+    lv_draw_rect(layer, &body, &area);
+    /* a pupil and its catch-light */
+    ui_draw_disc(layer, cx + hw / 5, cy + hh / 5, hw * 38 / 100, 0x05101A, LV_OPA_COVER);
+    ui_draw_disc(layer, cx + hw / 5 - hw * 13 / 100, cy + hh / 5 - hw * 14 / 100, hw * 9 / 100 + 1, 0xFFFFFF, LV_OPA_90);
+    /* the upper lid: black, with a bright edge */
+    rounded(layer, cx - hw - 12, cy - hh - 12, cx + hw + 12, cy - hh * 3 / 10, 0, 0x000000, LV_OPA_COVER);
+    rounded(layer, cx - hw - 12, cy - hh * 3 / 10, cx + hw + 12, cy - hh * 3 / 10 + 2, 0, orb_color(theme->ring, dim), LV_OPA_COVER);
+}

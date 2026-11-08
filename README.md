@@ -1,8 +1,16 @@
 # Arixware
 
 Arixware is desk companion firmware for the Waveshare ESP32-S3 Touch AMOLED 1.75 board.
-It includes expressive eyes, sound, a clock, timers, alarms, quotes, and local Wi-Fi setup
-and phone controls. The round display uses a 466 × 466 panel mounted at 90 degrees.
+It includes expressive eyes in two styles and several color themes, sound, a clock, timers,
+alarms, quotes, local Wi-Fi setup and phone controls, and over-the-air updates.
+The round display uses a 466 × 466 panel mounted at 90 degrees.
+
+## Install
+
+Flash the latest release from the browser, with no tools to install:
+**[arya-aghaei.github.io/arixware](https://arya-aghaei.github.io/arixware/)** (Chrome or Edge, USB cable).
+Afterwards the device can update itself from GitHub releases: Settings → Update.
+To build from source instead, see [Build](#build).
 
 ## Screenshots
 
@@ -21,6 +29,25 @@ The welcome name and Wi-Fi details are sample test data, not live device credent
     <td align="center"><img src="docs/screenshots/eyes-amazed.png" width="220" alt="Amazed round eyes with sparkles"><br>Amazed</td>
     <td align="center"><img src="docs/screenshots/eyes-angry.png" width="220" alt="Angry eyes with slanted upper edges"><br>Angry</td>
     <td align="center"><img src="docs/screenshots/eyes-sleeping.png" width="220" alt="Sleeping eyes with lowered lids"><br>Sleeping</td>
+  </tr>
+</table>
+
+### Square eyes
+
+A second eye pack, drawn from the design sheet in [`design/`](design/): cyan shield-shaped eyes with a
+floating lid line and dark pupils. Pick the style and a color theme in Settings → Eyes, or from the
+phone remote. Both packs are plain JSON; see [Eye packs](docs/EYE_PACKS.md).
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/square-neutral.png" width="220" alt="Default cyan square eyes"><br>Default</td>
+    <td align="center"><img src="docs/screenshots/square-happy.png" width="220" alt="Happy arched cyan eyes"><br>Happy</td>
+    <td align="center"><img src="docs/screenshots/square-curious.png" width="220" alt="Curious cyan eyes with a question mark"><br>Curious</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/square-excited.png" width="220" alt="Excited cyan eyes with sparkles"><br>Excited</td>
+    <td align="center"><img src="docs/screenshots/square-angry.png" width="220" alt="Angry cyan eyes with slanted lids"><br>Angry</td>
+    <td align="center"><img src="docs/screenshots/square-sleeping.png" width="220" alt="Sleeping cyan eyes as soft curves"><br>Sleeping</td>
   </tr>
 </table>
 
@@ -59,6 +86,8 @@ The firmware project name is `arix_deskbuddy`.
 - [Wi-Fi setup and network behavior](docs/WIFI_SETUP.md)
 - [Widget and display conventions](docs/WIDGETS.md)
 - [Settings UI checks](tests/settings_ui/README.md)
+- [Eye packs: JSON format, importing a design sheet](docs/EYE_PACKS.md)
+- [Eye rendering performance](docs/EYES_PERFORMANCE.md)
 - [Eyes preview and checks](tools/eyes_preview/README.md)
 - [Welcome screen preview](tests/welcome/README.md)
 - [Third-party materials](THIRD_PARTY_NOTICES.md)

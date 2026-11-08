@@ -49,6 +49,18 @@ int main(void)
         if (elapsed > 2000) assert(s_idle_dream > 0.99f);
         assert(s_idle_dream_since == nap_start);
     }
+    /* The Square style closes its lids for a nap too (it has no orb openness of its own). */
+    {
+        eyes_raster_set_style(EYES_STYLE_GLASS);
+        s_idle_owned = true;
+        s_morph_from[0].glass = s_morph_to[0].glass = GLASS[EXPRESSION_NEUTRAL].l;
+        eye_pose_t gp;
+        eyes_raster_pose_t gr;
+        compute_pose(0, &gp);
+        pose_to_raster(&gp, &gr);
+        assert(gr.glass.w > 0.0f && gr.glass.h < 0.2f && gr.glass.pupil == 0.0f);
+        eyes_raster_set_style(EYES_STYLE_ORB);
+    }
     lv_tick_inc(32);
     step_idle_personality(0.016f);
     assert(s_idle_mood == IDLE_WAKING);

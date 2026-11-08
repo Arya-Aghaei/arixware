@@ -112,3 +112,15 @@ void eyes_panel_join(void)
         s_worker_busy = false;
     }
 }
+
+bool eyes_panel_try_join(void)
+{
+    if (!s_worker_busy) {
+        return true;
+    }
+    if (xSemaphoreTake(s_worker_done, 0) != pdTRUE) {
+        return false;
+    }
+    s_worker_busy = false;
+    return true;
+}

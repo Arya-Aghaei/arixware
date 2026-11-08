@@ -19,3 +19,6 @@ bool eyes_panel_blit(int x0, int y0, int x1, int y1, const void *buf, bool wait)
  * time. eyes_panel_join() blocks until it has finished (no-op if none is running). */
 void eyes_panel_run_async(void (*fn)(void *arg), void *arg);
 void eyes_panel_join(void);
+/* Like join, but never waits: true when no job is running (or it has just finished), false while
+ * one is still running. */
+bool eyes_panel_try_join(void);

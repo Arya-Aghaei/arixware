@@ -19,6 +19,8 @@ ctest --test-dir /tmp/arixware-eyes --output-on-failure
 /tmp/arixware-eyes/eyes_preview --dream 6000
 ```
 
+`EYES_STYLE=1 EYES_THEME=7` previews the Square pack in Cyan. `eyes_bench` times the rasterizer for every shape (and the Square eyes) (see `docs/EYES_PERFORMANCE.md`).
+
 The last command renders a sheep dream at six seconds to `/tmp/eyes_preview.ppm`.
 `--dream-fence <milliseconds>` previews the orange sheep jumping over a fence.
 `--dream-saving <milliseconds>` previews the wallet and banknotes.

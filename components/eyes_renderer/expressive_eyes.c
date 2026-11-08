@@ -12,6 +12,7 @@
 #include "eyes_dream.h"
 #include "esp_log.h"
 
+
 static const char *TAG = "eyes";
 
 /* Set to 1 only for the sleep/dream visual test; normal idle behavior is the default. */
@@ -117,6 +118,7 @@ typedef struct
     float openness; /* 0..1, blink multiplies into this for CAPSULE/CHEVRON only */
     int8_t dir;     /* shape-specific orientation (arch up/down, chevron point side, crescent bite side) */
     eyes_accent_t accent;
+    eyes_glass_t glass; /* the Glass style's version of this eye: lids, pupil, size */
 } eye_desc_t;
 
 typedef struct
@@ -125,86 +127,21 @@ typedef struct
     eye_desc_t right;
 } expression_t;
 
+/* The tables for every pack are generated from the JSON packs in eyes/ by tools/eyepack/eyepack.py. */
+typedef struct { eyes_glass_t l, r; } glass_pair_t;
 /* clang-format off */
-static const expression_t EXPRESSIONS[] = {
-    /* Default: preserve the existing idle eyes. */
-    { .left  = { EYES_SHAPE_CAPSULE, 0.9f, 0.9f, 1.0f, 0, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_CAPSULE, 0.9f, 0.9f, 1.0f, 0, EYES_ACCENT_NONE } },
-    /* Happy, Excited, Pleased, Smile, Big Smile */
-    { .left  = { EYES_SHAPE_ARCH, .85f, .76f, 1, 1, EYES_ACCENT_RAYS },
-      .right = { EYES_SHAPE_ARCH, .85f, .76f, 1, 1, EYES_ACCENT_RAYS } },
-    { .left  = { EYES_SHAPE_ARCH, .74f, .92f, 1, 1, EYES_ACCENT_RAYS },
-      .right = { EYES_SHAPE_ARCH, .74f, .92f, 1, 1, EYES_ACCENT_RAYS } },
-    { .left  = { EYES_SHAPE_ARCH, .82f, .62f, 1, 1, EYES_ACCENT_SPARKLES },
-      .right = { EYES_SHAPE_ARCH, .82f, .62f, 1, 1, EYES_ACCENT_SPARKLES } },
-    { .left  = { EYES_SHAPE_ARCH, .85f, .56f, 1, 1, EYES_ACCENT_SIDE_RAYS },
-      .right = { EYES_SHAPE_ARCH, .85f, .56f, 1, 1, EYES_ACCENT_SIDE_RAYS } },
-    { .left  = { EYES_SHAPE_ARCH, .8f, .9f, 1, 1, EYES_ACCENT_RAYS },
-      .right = { EYES_SHAPE_ARCH, .8f, .9f, 1, 1, EYES_ACCENT_RAYS } },
-    /* Content, Relaxed, Blink */
-    { .left  = { EYES_SHAPE_HALF, .9f, .85f, 1, 0, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_HALF, .9f, .85f, 1, 0, EYES_ACCENT_NONE } },
-    { .left  = { EYES_SHAPE_HALF, .9f, .85f, 1, -1, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_HALF, .9f, .85f, 1, 1, EYES_ACCENT_NONE } },
-    { .left  = { EYES_SHAPE_SLEEP, .9f, .13f, 1, 0, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_SLEEP, .9f, .13f, 1, 0, EYES_ACCENT_NONE } },
-    /* Wink (L), Wink (R), Curious */
-    { .left  = { EYES_SHAPE_ARCH, .8f, .68f, 1, 1, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_CAPSULE, .85f, .9f, 1, 0, EYES_ACCENT_STAR } },
-    { .left  = { EYES_SHAPE_CAPSULE, .85f, .9f, 1, 0, EYES_ACCENT_STAR },
-      .right = { EYES_SHAPE_ARCH, .8f, .68f, 1, 1, EYES_ACCENT_NONE } },
-    { .left  = { EYES_SHAPE_HALF, .85f, 1, 1, -1, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_HALF, .85f, 1, 1, 1, EYES_ACCENT_QUESTION } },
-    /* Surprised, Amazed, Love */
-    { .left  = { EYES_SHAPE_OVAL, .82f, 1.08f, 1, 0, EYES_ACCENT_RAYS },
-      .right = { EYES_SHAPE_OVAL, .82f, 1.08f, 1, 0, EYES_ACCENT_RAYS } },
-    { .left  = { EYES_SHAPE_CAPSULE, .85f, .9f, 1, 0, EYES_ACCENT_SPARKLES },
-      .right = { EYES_SHAPE_CAPSULE, .85f, .9f, 1, 0, EYES_ACCENT_SPARKLES } },
-    { .left  = { EYES_SHAPE_HEART, .8f, .8f, 1, 0, EYES_ACCENT_HEARTS },
-      .right = { EYES_SHAPE_HEART, .8f, .8f, 1, 0, EYES_ACCENT_HEARTS } },
-    /* Blushing, Shy, Nervous */
-    { .left  = { EYES_SHAPE_CAPSULE, .85f, .85f, 1, 0, EYES_ACCENT_BLUSH },
-      .right = { EYES_SHAPE_CAPSULE, .85f, .85f, 1, 0, EYES_ACCENT_BLUSH } },
-    { .left  = { EYES_SHAPE_ARCH, .8f, .72f, 1, 1, EYES_ACCENT_BLUSH },
-      .right = { EYES_SHAPE_ARCH, .8f, .72f, 1, 1, EYES_ACCENT_BLUSH } },
-    { .left  = { EYES_SHAPE_CAPSULE, .85f, .85f, 1, 0, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_CAPSULE, .85f, .85f, 1, 0, EYES_ACCENT_NERVOUS } },
-    /* Angry, Determined, Suspicious */
-    { .left  = { EYES_SHAPE_SLOPE, .9f, .85f, 1, 1, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_SLOPE, .9f, .85f, 1, -1, EYES_ACCENT_NONE } },
-    { .left  = { EYES_SHAPE_SLOPE, .85f, .75f, 1, 1, EYES_ACCENT_RAYS },
-      .right = { EYES_SHAPE_SLOPE, .85f, .75f, 1, -1, EYES_ACCENT_RAYS } },
-    { .left  = { EYES_SHAPE_SLOPE, .85f, .65f, 1, 1, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_SLOPE, .85f, .65f, 1, -1, EYES_ACCENT_NONE } },
-    /* Sad, Worried, Confused */
-    { .left  = { EYES_SHAPE_ARCH, .85f, .72f, 1, 1, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_ARCH, .85f, .72f, 1, 1, EYES_ACCENT_NONE } },
-    { .left  = { EYES_SHAPE_WORRIED, .85f, .65f, 1, 0, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_WORRIED, .85f, .65f, 1, 0, EYES_ACCENT_DROP } },
-    { .left  = { EYES_SHAPE_WORRIED, .85f, .65f, 1, 0, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_WORRIED, .85f, .65f, 1, 0, EYES_ACCENT_QUESTION } },
-    /* Sleeping, Sleeping (zzz), Dreamy */
-    { .left  = { EYES_SHAPE_SLEEP, .9f, .5f, 1, 0, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_SLEEP, .9f, .5f, 1, 0, EYES_ACCENT_NONE } },
-    { .left  = { EYES_SHAPE_HALF, .85f, .6f, 1, 0, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_HALF, .85f, .6f, 1, 0, EYES_ACCENT_ZZZ } },
-    { .left  = { EYES_SHAPE_CAPSULE, .85f, .85f, 1, 0, EYES_ACCENT_CLOUDS },
-      .right = { EYES_SHAPE_CAPSULE, .85f, .85f, 1, 0, EYES_ACCENT_CLOUDS } },
-    /* Hypnotized, Focused, Laugh */
-    { .left  = { EYES_SHAPE_SPIRAL, .85f, .85f, 1, 1, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_SPIRAL, .85f, .85f, 1, -1, EYES_ACCENT_NONE } },
-    { .left  = { EYES_SHAPE_SLOPE, .85f, .7f, 1, 1, EYES_ACCENT_NONE },
-      .right = { EYES_SHAPE_SLOPE, .85f, .7f, 1, -1, EYES_ACCENT_STAR } },
-    { .left  = { EYES_SHAPE_CHEVRON, .6f, .65f, 1, 1, EYES_ACCENT_SIDE_RAYS },
-      .right = { EYES_SHAPE_CHEVRON, .6f, .65f, 1, -1, EYES_ACCENT_SIDE_RAYS } },
-};
+#include "generated/eye_packs.inc"
 /* clang-format on */
 
 #define EXPRESSION_NEUTRAL EYES_EXPRESSION_DEFAULT
 #define EXPRESSION_COUNT (sizeof(EXPRESSIONS) / sizeof(EXPRESSIONS[0]))
 _Static_assert(EXPRESSION_COUNT == EYES_EXPRESSION_COUNT, "Expression chart and API must agree");
 
-/* One sound per expression, in chart order, so no two moods share a clip (19_annoyed is spare). */
+_Static_assert(sizeof(GLASS) / sizeof(GLASS[0]) == EYES_EXPRESSION_COUNT, "One glass pair per expression");
+_Static_assert(sizeof(GLASS_ACCENT) / sizeof(GLASS_ACCENT[0]) == EYES_EXPRESSION_COUNT, "One glass accent pair per expression");
+
+/* One sound per expression, in catalog order. The original 30 moods have a clip each; the moods added for
+ * the Square pack reuse the closest existing clip. */
 static const int EXPRESSION_SOUND[] = {
     MMAP_SOUNDS_01_NEUTRAL_ACK_WAV, /* Default */
     MMAP_SOUNDS_03_HAPPY_WAV,       /* Happy */
@@ -236,6 +173,17 @@ static const int EXPRESSION_SOUND[] = {
     MMAP_SOUNDS_18_DIZZY_WAV,       /* Hypnotized */
     MMAP_SOUNDS_09_INTERESTED_WAV,  /* Focused */
     MMAP_SOUNDS_15_LAUGHING_WAV,    /* Laugh */
+    MMAP_SOUNDS_27_ALERT_WAV,       /* Startled */
+    MMAP_SOUNDS_06_ATTENTIVE_WAV,   /* Thinking */
+    MMAP_SOUNDS_10_STARRY_WAV,      /* Realization */
+    MMAP_SOUNDS_29_SUSPICIOUS_WAV,  /* Skeptical */
+    MMAP_SOUNDS_24_UNIMPRESSED_WAV, /* Annoyed */
+    MMAP_SOUNDS_20_PLEADING_WAV,    /* Crying */
+    MMAP_SOUNDS_22_TIRED_WAV,       /* Disappointed */
+    MMAP_SOUNDS_07_BORED_WAV,       /* Tired */
+    MMAP_SOUNDS_23_PLAYFUL_WINK_WAV, /* Playful */
+    MMAP_SOUNDS_18_DIZZY_WAV,       /* Glitch */
+    MMAP_SOUNDS_08_SIDE_GLANCE_WAV, /* Smug */
 };
 _Static_assert(sizeof(EXPRESSION_SOUND) / sizeof(EXPRESSION_SOUND[0]) == EXPRESSION_COUNT,
                "Every expression needs an explicit sound mapping");
@@ -326,6 +274,7 @@ static float s_squash[2];
 static float s_squash_v[2];
 static float s_ticks_alpha[2];
 static eye_pose_t s_drawn[2];
+static bool s_drawn_draft[2]; /* the sprite on screen is a half-resolution draft */
 /* Two sprite buffers per eye: the front one is on screen, the back one is rasterized for the next
  * frame on the helper core while this frame streams to the panel (shapes trail positions by one
  * frame, which is invisible). */
@@ -341,6 +290,7 @@ typedef struct
     bool render[2]; /* rasterize eye i's pose into its back buffer */
     bool share;     /* eye 1 follows eye 0's new sprite (identical or mirrored poses) */
     bool share_mirror;
+    bool draft[2];  /* shade at half resolution: the frame is replaced as soon as the pose settles */
     eye_pose_t pose[2];
 } raster_req_t;
 static raster_req_t s_req;
@@ -469,7 +419,7 @@ static bool is_blinkable(const eye_desc_t *d)
 {
     return d->shape == EYES_SHAPE_CAPSULE || d->shape == EYES_SHAPE_CHEVRON ||
            d->shape == EYES_SHAPE_HALF || d->shape == EYES_SHAPE_SLOPE ||
-           d->shape == EYES_SHAPE_HEART || d->shape == EYES_SHAPE_WORRIED;
+           d->shape == EYES_SHAPE_HEART || d->shape == EYES_SHAPE_WORRIED || d->shape == EYES_SHAPE_EGG;
 }
 
 /* Same sizing rules the LVGL renderer used: blink scales only blinkable shapes, closing eyes
@@ -477,6 +427,44 @@ static bool is_blinkable(const eye_desc_t *d)
 static void pose_to_raster(const eye_pose_t *p, eyes_raster_pose_t *r)
 {
     const eye_desc_t *d = &p->d;
+    memset(r, 0, sizeof(*r));
+    if (eyes_raster_get_style() == EYES_STYLE_GLASS && d->glass.w > 0.001f)
+    {
+        /* Glass: the blink closes the eyelids, there is no squash. The sprite is the whole eye. */
+        r->glass = d->glass;
+        /* The pupils follow the gaze, the eyes a little out of step with each other. */
+        float look = LV_CLAMP(-1.0f, s_gaze_x / (float)SURPRISED_SACCADE_RANGE_X, 1.0f);
+        float lift = LV_CLAMP(-1.0f, s_gaze_y / (float)SURPRISED_SACCADE_RANGE_X, 1.0f);
+        r->glass.pupil_x += (p->side < 0 ? 1.0f : -1.15f) * look * 0.15f;
+        r->glass.pupil_y += lift * 0.08f;
+        float open = p->lid * (s_idle_owned ? d->openness : 1.0f);
+        float closing = 1.0f - LV_CLAMP(0.0f, open, 1.0f);
+        /* The upper lid, with its line, travels down over the eye. */
+        r->glass.top += (1.0f - r->glass.top) * LV_MIN(1.0f, closing * 1.05f);
+        if (closing > 0.6f)
+        {
+            /* Shut eyes become the Sleeping mood's soft curve, not a lid line over nothing. */
+            float k = LV_CLAMP(0.0f, (closing - 0.6f) / 0.4f, 1.0f);
+            k = k * k * (3.0f - 2.0f * k);
+            const eyes_glass_t *z = p->side < 0 ? &GLASS[EYES_EXPRESSION_SLEEPING].l : &GLASS[EYES_EXPRESSION_SLEEPING].r;
+            if (z->w > 0.0f)
+            {
+                float *o = &r->glass.w;
+                const float *b = &z->w;
+                for (int n = 0; n < 15; n++) o[n] += (b[n] - o[n]) * k;
+            }
+        }
+        r->shape = EYES_SHAPE_GLASS;
+        r->dir = p->side < 0 ? 1 : -1;
+        r->w = (int32_t)(EYE_W * r->glass.w);
+        r->h = (int32_t)(EYE_H * r->glass.h);
+        r->stroke_basis = (float)r->h;
+        r->squash = 1.0f;
+        r->accent = d->accent;
+        r->accent_opacity = p->ticks;
+        r->side = d->accent == EYES_ACCENT_NONE ? 0 : p->side;
+        return;
+    }
     bool blinkable = is_blinkable(d);
     float squash = LV_MAX(p->squash, 0.02f);
     float sx = 1.0f + SQUASH_STRETCH * (1.0f - LV_MIN(squash, 1.0f));
@@ -508,7 +496,7 @@ static void pose_to_raster(const eye_pose_t *p, eyes_raster_pose_t *r)
     r->stripes = p->stripes;
     r->accent = d->accent;
     r->accent_opacity = p->ticks;
-    r->side = d->accent == EYES_ACCENT_NONE && d->shape != EYES_SHAPE_WORRIED ? 0 : p->side;
+    r->side = d->accent == EYES_ACCENT_NONE && d->shape != EYES_SHAPE_WORRIED && d->dir != 2 ? 0 : p->side;
     r->ticks = 0.0f;
 }
 
@@ -525,6 +513,11 @@ static eye_desc_t blend_desc(const eye_desc_t *from, const eye_desc_t *to, float
     out.w = from->w + (to->w - from->w) * t;
     out.h = from->h + (to->h - from->h) * t;
     out.openness = from->openness + (to->openness - from->openness) * t;
+    /* Glass parameters are all plain floats: morph each one. */
+    const float *a = &from->glass.w, *b = &to->glass.w;
+    float *o = &out.glass.w;
+    for (int k = 0; k < 15; k++) o[k] = a[k] + (b[k] - a[k]) * t;
+    out.glass.pupil_kind = t < 0.5f ? from->glass.pupil_kind : to->glass.pupil_kind;
     return out;
 }
 
@@ -570,7 +563,8 @@ static bool raster_equal(const eyes_raster_pose_t *a, const eyes_raster_pose_t *
     return a->shape == b->shape && a->dir == b->dir && a->w == b->w && a->h == b->h &&
            a->stroke_basis == b->stroke_basis && a->squash == b->squash && a->cy == b->cy &&
            a->ticks == b->ticks && a->spin == b->spin && a->stripes == b->stripes &&
-           a->accent == b->accent && a->side == b->side && a->accent_opacity == b->accent_opacity;
+           a->accent == b->accent && a->side == b->side && a->accent_opacity == b->accent_opacity &&
+           memcmp(&a->glass, &b->glass, sizeof(a->glass)) == 0;
 }
 
 /* Equal when they rasterize identically (e.g. a spiral ignores the curious squint). */
@@ -595,7 +589,7 @@ static bool pose_mirror_equal(const eye_pose_t *a, const eye_pose_t *b)
         return false;
     }
     bool sided = ra.shape == EYES_SHAPE_CHEVRON || ra.shape == EYES_SHAPE_CRESCENT ||
-                 ra.shape == EYES_SHAPE_SPIRAL || ra.shape == EYES_SHAPE_HALF ||
+                 ra.shape == EYES_SHAPE_SPIRAL || ra.shape == EYES_SHAPE_HALF || ra.shape == EYES_SHAPE_EGG || ra.shape == EYES_SHAPE_GLASS ||
                  ra.shape == EYES_SHAPE_SLOPE;
     if (!sided || ra.dir == 0)
     {
@@ -615,6 +609,7 @@ static void raster_job(void *arg)
         {
             eyes_raster_pose_t rp;
             pose_to_raster(&req->pose[i], &rp);
+            rp.draft = req->draft[i];
             eyes_raster_render(&rp, EYES_ROTATION, &s_sprites[i][!s_front[i]]);
         }
     }
@@ -636,6 +631,7 @@ static void apply_raster_results(bool sprite_dirty[2])
             s_eye_sprite[i] = &s_sprites[i][s_front[i]];
             s_eye_mirror[i] = false;
             s_drawn[i] = s_req.pose[i];
+            s_drawn_draft[i] = s_req.draft[i];
             sprite_dirty[i] = true;
         }
     }
@@ -644,6 +640,7 @@ static void apply_raster_results(bool sprite_dirty[2])
         s_eye_sprite[1] = s_eye_sprite[0];
         s_eye_mirror[1] = s_req.share_mirror;
         s_drawn[1] = s_req.pose[1];
+        s_drawn_draft[1] = s_req.draft[0];
         sprite_dirty[1] = true;
     }
 }
@@ -652,12 +649,18 @@ static void apply_raster_results(bool sprite_dirty[2])
  * Returns true if anything must be rendered. */
 static bool plan_raster(const eye_pose_t pose[2], bool force, bool sprite_dirty[2])
 {
-    bool changed0 = force || !pose_equal(&pose[0], &s_drawn[0]);
-    bool changed1 = force || !pose_equal(&pose[1], &s_drawn[1]);
+    /* A pose that is still moving is drawn as a cheap half-resolution draft; once it stops, the
+     * draft on screen is replaced by one full-quality draw. */
+    bool moved0 = !force && !pose_equal(&pose[0], &s_drawn[0]);
+    bool moved1 = !force && !pose_equal(&pose[1], &s_drawn[1]);
+    bool changed0 = force || moved0 || s_drawn_draft[0];
+    bool changed1 = force || moved1 || s_drawn_draft[1];
     bool eye1_shares = s_eye_sprite[1] == s_eye_sprite[0];
     memset(&s_req, 0, sizeof(s_req));
     s_req.pose[0] = pose[0];
     s_req.pose[1] = pose[1];
+    s_req.draft[0] = moved0;
+    s_req.draft[1] = moved1 || (eye1_shares && moved0);
     s_req.render[0] = changed0;
     bool same = pose_equal(&pose[1], &pose[0]);
     bool mirrored = !same && pose_mirror_equal(&pose[1], &pose[0]);
@@ -674,6 +677,7 @@ static bool plan_raster(const eye_pose_t pose[2], bool force, bool sprite_dirty[
             s_eye_sprite[1] = s_eye_sprite[0];
             s_eye_mirror[1] = mirrored;
             s_drawn[1] = pose[1];
+            s_drawn_draft[1] = s_drawn_draft[0];
             sprite_dirty[1] = true;
         }
     }
@@ -960,7 +964,12 @@ static void render_frame(bool force)
     {
         force = true;
     }
-    eyes_panel_join();
+    /* A full-quality draw can take ~100 ms on the helper core; do not stall the UI waiting for it. */
+    if (force) {
+        eyes_panel_join();
+    } else if (!eyes_panel_try_join()) {
+        return;
+    }
     bool sprite_dirty[2] = {false, false};
     apply_raster_results(sprite_dirty);
 
@@ -1051,12 +1060,24 @@ static void start_expression_transition(uint8_t new_expression)
     {
         eye_desc_t current = current_desc(i);
         s_target[i] = (i == 0) ? to->left : to->right;
+        s_target[i].glass = (i == 0) ? GLASS[new_expression].l : GLASS[new_expression].r;
+        if (eyes_raster_get_style() == EYES_STYLE_GLASS)
+        {
+            s_target[i].accent = GLASS_ACCENT[new_expression][i];
+            if (s_target[i].glass.w < 0.0f)
+            {
+                /* The square pack draws this mood with an orb shape (the laugh's chevrons): w, h carry its size. */
+                s_target[i].w = -s_target[i].glass.w;
+                s_target[i].h = s_target[i].glass.h;
+                s_target[i].glass.w = 0.0f;
+            }
+        }
         s_morph_from[i] = current;
         bool surprised_orb = new_expression == EXPRESSION_SURPRISED &&
                              (current.shape == EYES_SHAPE_CAPSULE || current.shape == EYES_SHAPE_OVAL);
         bool nervous_orb = current.shape == EYES_SHAPE_CAPSULE && s_target[i].shape == EYES_SHAPE_CAPSULE &&
                            (new_expression == EYES_EXPRESSION_NERVOUS || current.accent == EYES_ACCENT_NERVOUS);
-        if (same_kind(&current, &s_target[i]) || surprised_orb || nervous_orb)
+        if (eyes_raster_get_style() == EYES_STYLE_GLASS || same_kind(&current, &s_target[i]) || surprised_orb || nervous_orb)
         {
             /* A round idle eye can expand directly into an oval without closing first. */
             if (surprised_orb) s_morph_from[i].shape = EYES_SHAPE_OVAL;
@@ -1823,8 +1844,10 @@ static void expressive_eyes_create(lv_obj_t *parent)
         const eye_desc_t *d = (i == 0) ? &EXPRESSIONS[EXPRESSION_NEUTRAL].left
                                        : &EXPRESSIONS[EXPRESSION_NEUTRAL].right;
         s_morph_from[i] = *d;
-        s_morph_to[i] = *d;
-        s_target[i] = *d;
+        s_morph_from[i].glass = (i == 0) ? GLASS[EXPRESSION_NEUTRAL].l : GLASS[EXPRESSION_NEUTRAL].r;
+        if (eyes_raster_get_style() == EYES_STYLE_GLASS) s_morph_from[i].accent = GLASS_ACCENT[EXPRESSION_NEUTRAL][i];
+        s_morph_to[i] = s_morph_from[i];
+        s_target[i] = s_morph_from[i];
         s_morph_p[i] = 1.0f;
         s_swapping[i] = false;
         /* Open from a slit on the squash spring: the eyes "wake up" instead of popping in. */
@@ -1948,6 +1971,7 @@ static void expressive_eyes_destroy(void)
     free_fade_snapshot();
     memset(s_eyes, 0, sizeof(s_eyes));
     memset(s_drawn, 0, sizeof(s_drawn));
+    memset(s_drawn_draft, 0, sizeof(s_drawn_draft));
 }
 
 static const eyes_renderer_api_t s_api = {
@@ -1960,6 +1984,12 @@ static const eyes_renderer_api_t s_api = {
     .fade_out_to = expressive_eyes_fade_out_to,
     .get_expression = expressive_eyes_get_expression,
 };
+
+void eyes_renderer_refresh_theme(void)
+{
+    s_force_full = true;
+    wake_frame_timer();
+}
 
 const eyes_renderer_api_t *eyes_renderer_get_default(void)
 {

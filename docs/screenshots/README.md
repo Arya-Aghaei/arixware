@@ -17,6 +17,10 @@ The published images use IDs 0 (Default), 1 (Happy), 11 (Curious), 13 (Amazed),
 18 (Angry), and 24 (Sleeping). Convert the corresponding PPM files to PNG with ffmpeg.
 No rotation is needed because the host eyes preview exports upright frames.
 
+The `square-*.png` images are the Square pack in the Cyan theme
+(`python3 tools/eyepack/compare.py square` renders every mood to `/tmp/arixware-eyes/frames-square`;
+the IDs are the same moods: default, happy, curious, excited, angry, sleeping).
+
 ## Panel
 
 Run the [settings host checks](../../tests/settings_ui/README.md) with screenshot outputs:

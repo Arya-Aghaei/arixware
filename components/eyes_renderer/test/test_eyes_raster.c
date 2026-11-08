@@ -69,7 +69,7 @@ static void accents(void)
                         int32_t x, y;
                         logical(rotation, pu, pv, &x, &y);
                         (void)y;
-                        if (x * side > p.w / 2 || kind == EYES_ACCENT_BLUSH) outside++;
+                        if (x * side > p.w / 2 || kind == EYES_ACCENT_BLUSH || kind == EYES_ACCENT_ZZZ || kind == EYES_ACCENT_QUESTION) outside++; /* zzz and the question mark float above the eye */
                     }
                 }
                 assert(outside > 8);
@@ -166,7 +166,7 @@ static void silhouettes(void)
     assert(bright(at(&s, 0, -25)));
     assert(!bright(at(&s, 0, 25))); /* Wide, shallow lower cutout. */
     free(s.px);
-    p.shape = EYES_SHAPE_SLEEP;
+    p.shape = EYES_SHAPE_LENS;
     s = render(&p, 0);
     extent(&s, 0, &top, &bottom);
     assert(bottom - top >= 70); /* Resting lens height is roughly half its width. */
@@ -180,9 +180,10 @@ static void silhouettes(void)
     p.h = 170;
     p.side = 1;
     s = render(&p, 0);
-    /* Two circles on one baseline: the right one has twice the area, so 1.41x the height of the left. */
-    extent(&s, -41, &left_top, &left_bottom);
-    extent(&s, 26, &right_top, &right_bottom);
+    /* Two circles on one baseline: the large one (toward the nose) has twice the area, so 1.41x the
+     * height of the small one. For the right eye the large circle is on the left. */
+    extent(&s, 41, &left_top, &left_bottom);
+    extent(&s, -26, &right_top, &right_bottom);
     int small_h = left_bottom - left_top, large_h = right_bottom - right_top;
     assert(small_h > 50 && large_h > small_h);
     assert(large_h * 100 >= small_h * 135 && large_h * 100 <= small_h * 148);
@@ -191,10 +192,36 @@ static void silhouettes(void)
     /* The left eye is the same shape flipped horizontally. */
     p.side = -1;
     s = render(&p, 0);
-    extent(&s, 41, &left_top, &left_bottom);
-    extent(&s, -26, &right_top, &right_bottom);
+    extent(&s, -41, &left_top, &left_bottom);
+    extent(&s, 26, &right_top, &right_bottom);
     assert(right_bottom - right_top == large_h && left_bottom - left_top == small_h);
     free(s.px);
+}
+
+/* Glass style: the biggest eyes fit the 256 px sprite budget and draw without touching outside it. */
+static void glass_style(void)
+{
+    eyes_raster_set_style(EYES_STYLE_GLASS);
+    static const eyes_glass_t cases[] = {
+        { .w = .58f, .h = .78f, .corner = .62f },
+        { .w = .52f, .h = .90f, .corner = .62f, .top = .3f, .top_slope = .8f, .pupil = .3f, .pupil_x = .3f },
+        { .w = .74f, .h = .74f, .corner = .6f, .bot = .3f, .bot_bow = .7f, .top = .5f, .top_bow = .3f, .pupil = .9f, .pupil_kind = 2 },
+        { .w = .66f, .h = .60f, .corner = .55f, .top = .5f, .bot = .5f },
+        { .w = .71f, .h = .91f, .corner = 1.0f, .round_top = 1.0f, .lid_gap = .1f, .pupil = .3f, .pupil_y = -.2f },
+        { .w = .83f, .h = .50f, .corner = .05f, .round_top = 1.0f, .bot = -.18f, .bot_bow = 1.25f },
+        { .w = .83f, .h = .56f, .corner = .28f, .lid_gap = .26f, .top = .2f, .top_slope = .35f, .top_bow = -.3f, .pupil = .45f, .pupil_x = .4f },
+    };
+    for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        for (int dir = -1; dir <= 1; dir += 2) {
+            eyes_raster_pose_t p = { .shape = EYES_SHAPE_CAPSULE, .dir = (int8_t)dir, .w = (int32_t)(170 * cases[i].w),
+                .h = (int32_t)(170 * cases[i].h), .stroke_basis = 170, .squash = 1, .glass = cases[i] };
+            for (int rotation = 0; rotation < 360; rotation += 90) {
+                eyes_sprite_t s = render(&p, rotation);
+                free(s.px);
+            }
+        }
+    }
+    eyes_raster_set_style(EYES_STYLE_ORB);
 }
 
 int main(void)
@@ -224,6 +251,7 @@ int main(void)
     }
     accents();
     reference_rotations();
+    glass_style();
     silhouettes();
     baseline();
     printf("eyes raster: %u shape/accent/rotation cases passed\n", cases);

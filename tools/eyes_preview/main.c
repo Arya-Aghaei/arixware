@@ -1,5 +1,7 @@
 #include "lvgl.h"
 #include "eyes_renderer.h"
+#include "eyes_raster.h"
+#include "eyes_theme.h"
 #include "eyes_dream.h"
 #include "panel_host.h"
 #include <stdio.h>
@@ -54,6 +56,9 @@ static bool dump_ppm(const char *path)
 
 int main(int argc, char **argv)
 {
+    /* EYES_STYLE=1 previews the Glass style. */
+    if (getenv("EYES_STYLE")) eyes_raster_set_style(atoi(getenv("EYES_STYLE")));
+    if (getenv("EYES_THEME")) eyes_themes_select(atoi(getenv("EYES_THEME")));
     /* Two modes:
      *   ./eyes_preview [expression]                      -> single settled frame, /tmp/eyes_preview.ppm
      *   ./eyes_preview <from> <to> <frames> [duration_ms] -> transition sequence,

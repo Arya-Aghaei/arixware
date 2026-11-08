@@ -47,6 +47,9 @@
                  align-items:center; gap:2px; }
   .grid .emoji { font-size:22px; }
   .slider-label { display:flex; justify-content:space-between; color:var(--soft); font-size:14px; margin-top:4px; }
+  .swatches { display:flex; flex-wrap:wrap; gap:10px; }
+  .swatches button { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; font-size:14px; }
+  .swatches i { width:18px; height:18px; border-radius:50%; display:inline-block; box-shadow:0 0 8px currentColor; }
   .note { color:var(--dim); font-size:13px; margin:8px 0 0; }
   #login input { text-align:center; font-size:30px; letter-spacing:.35em; }
   #toast { position:fixed; left:50%; bottom:max(24px, env(safe-area-inset-bottom)); transform:translate(-50%, 20px);
@@ -88,6 +91,13 @@
   </section>
 
   <section>
+    <h2>Eye style</h2>
+    <div class="swatches" id="styles"></div>
+    <h2 style="margin-top:14px">Eye color</h2>
+    <div class="swatches" id="themes"></div>
+  </section>
+
+  <section>
     <h2>Alarm</h2>
     <div class="row"><input id="alarm-time" type="time" value="07:00"><button id="alarm-toggle">Alarm off</button></div>
   </section>
@@ -118,13 +128,15 @@
 <div id="toast"></div>
 
 <script>
-const MOODS = [
-  ['Default', '😐'], ['Happy', '🙂'], ['Excited', '🤩'], ['Pleased', '😌'], ['Smile', '😊'], ['Big smile', '😄'],
-  ['Content', '☺️'], ['Relaxed', '😌'], ['Blink', '😑'], ['Wink left', '😉'], ['Wink right', '😉'], ['Curious', '🧐'],
-  ['Surprised', '😮'], ['Amazed', '🤯'], ['Love', '😍'], ['Blushing', '😳'], ['Shy', '🙈'], ['Nervous', '😬'],
-  ['Angry', '😠'], ['Determined', '😤'], ['Suspicious', '🤨'], ['Sad', '😢'], ['Worried', '😟'], ['Confused', '😕'],
-  ['Sleeping', '😴'], ['Sleeping zzz', '💤'], ['Dreamy', '🥱'], ['Hypnotized', '😵‍💫'], ['Focused', '🎯'], ['Laugh', '😂'],
-];
+/* The moods come from the active eye style (the device lists them); this only picks a face for each. */
+const EMOJI = {
+  default: '😐', happy: '🙂', excited: '🤩', pleased: '😌', smile: '😊', 'big-smile': '😄', content: '☺️', relaxed: '😌',
+  blink: '😑', 'wink-left': '😉', 'wink-right': '😉', curious: '🧐', surprised: '😮', amazed: '🤯', love: '😍',
+  blushing: '😳', shy: '🙈', nervous: '😬', angry: '😠', determined: '😤', suspicious: '🤨', sad: '😢', worried: '😟',
+  confused: '😕', sleeping: '😴', 'sleeping-zzz': '💤', dreamy: '🥱', hypnotized: '😵‍💫', focused: '🎯', laugh: '😂',
+  startled: '😳', thinking: '🤔', realization: '💡', skeptical: '🤨', annoyed: '😒', crying: '😭', disappointed: '😞',
+  tired: '🥱', playful: '😜', glitch: '👾', smug: '😏',
+};
 const TIMER_STATES = ['Ready', 'Running', 'Paused', 'Time is up'];
 const $ = id => document.getElementById(id);
 
@@ -136,9 +148,9 @@ let busyUntil = 0; // while a slider is being dragged, polls must not move it ba
 
 /* The mood buttons show which expression the arix is wearing. */
 function showMood(m) {
-  if (m < 0 || m >= MOODS.length) return;
+  if (m < 0) return;
   shownMood = m;
-  document.querySelectorAll('#moods button').forEach((b, i) => b.classList.toggle('on', i === m));
+  document.querySelectorAll('#moods button').forEach(b => b.classList.toggle('on', Number(b.dataset.mood) === m));
 }
 
 /* ---------------------------------------------------------------- talking to the arix */
@@ -193,7 +205,41 @@ function render(s) {
   const t = s.timer;
   $('timer-note').textContent = t.state === 0 ? '' : TIMER_STATES[t.state] +
     (t.state < 3 ? ` - ${Math.floor(t.remaining / 60)}:${String(t.remaining % 60).padStart(2, '0')} left` : '');
+  const moods = s.eyes.moods, key = moods.map(m => m.i).join(',');
+  if ($('moods').dataset.key !== key) {
+    $('moods').dataset.key = key;
+    $('moods').innerHTML = '';
+    moods.forEach(m => {
+      const b = document.createElement('button');
+      b.dataset.mood = m.i;
+      b.innerHTML = `<span class="emoji">${EMOJI[m.id] || '🙂'}</span><span>${m.label}</span>`;
+      b.onclick = () => { showMood(m.i); send({ mood: m.i }); };
+      $('moods').appendChild(b);
+    });
+  }
   if (s.mood >= 0) showMood(s.mood);
+  const sbox = $('styles');
+  if (sbox.children.length !== s.eyes.styles.length) {
+    sbox.innerHTML = '';
+    s.eyes.styles.forEach((name, i) => {
+      const b = document.createElement('button');
+      b.textContent = name;
+      b.onclick = () => send({ eyesStyle: i });
+      sbox.appendChild(b);
+    });
+  }
+  [...sbox.children].forEach((b, i) => b.classList.toggle('on', i === s.eyes.style));
+  const box = $('themes');
+  if (box.children.length !== s.eyes.themes.length) {
+    box.innerHTML = '';
+    s.eyes.themes.forEach((t, i) => {
+      const b = document.createElement('button');
+      b.innerHTML = `<i style="background:${t.color};color:${t.color}"></i>${t.name}`;
+      b.onclick = () => send({ eyesTheme: i });
+      box.appendChild(b);
+    });
+  }
+  [...box.children].forEach((b, i) => b.classList.toggle('on', i === s.eyes.theme));
   const u = s.update, busy = u.state === 'checking' || u.state === 'installing' || u.state === 'done';
   $('fw-version').textContent = 'Version ' + u.version;
   $('fw-update').disabled = busy;
@@ -230,12 +276,6 @@ function start() {
 }
 
 /* ---------------------------------------------------------------- controls */
-MOODS.forEach(([name, emoji], i) => {
-  const b = document.createElement('button');
-  b.innerHTML = `<span class="emoji">${emoji}</span><span>${name}</span>`;
-  b.onclick = () => { showMood(i); send({ mood: i }); };
-  $('moods').appendChild(b);
-});
 
 $('login-go').onclick = async () => {
   code = $('code').value.trim();

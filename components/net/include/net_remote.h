@@ -15,6 +15,8 @@ typedef struct {
     bool dnd;
     bool asleep;
     int mood; /* the eyes' current mood, -1 if the eyes are not showing */
+    int eyes_theme; /* index into eyes_themes_*() */
+    int eyes_style; /* index into eyes_styles_*() */
     struct {
         int hour;
         int minute;
@@ -39,6 +41,8 @@ typedef struct {
     void (*set_dnd)(bool enabled);
     void (*set_alarm)(int hour, int minute, bool enabled);
     void (*set_timer)(int minutes, bool start);
+    void (*set_eyes_theme)(int index);
+    void (*set_eyes_style)(int index);
     void (*sleep)(void);
     void (*wake)(void);
 } net_remote_ops_t;

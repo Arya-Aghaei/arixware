@@ -6,6 +6,8 @@
 #include "net_wifi.h"
 #include "net_remote.h"
 #include "net_ota.h"
+#include "ui_draw.h"
+#include "eyes_theme.h"
 #include "net_timezone.h"
 #include "src/libs/qrcode/qrcodegen.h"
 #include "images.h"
@@ -74,6 +76,9 @@ typedef enum
     ICON_VOLUME,
     ICON_UPDATE,
     ICON_AUTO,
+    ICON_EYES,
+    ICON_NEXT,
+    ICON_SQUARE,
 } settings_icon_t;
 
 typedef enum
@@ -83,6 +88,7 @@ typedef enum
     PAGE_PORTAL,
     PAGE_ABOUT,
     PAGE_UPDATE,
+    PAGE_EYES,
 } page_t;
 
 typedef enum
@@ -93,6 +99,10 @@ typedef enum
     BTN_SLEEP,
     BTN_ABOUT,
     BTN_UPDATE,
+    BTN_EYES,
+    BTN_EYES_PREV,
+    BTN_EYES_NEXT,
+    BTN_EYES_STYLE,
     BTN_UPDATE_CHECK,
     BTN_UPDATE_AUTO,
     BTN_BACK,
@@ -114,8 +124,12 @@ static const button_def_t BUTTONS[BTN_COUNT] = {
     [BTN_PORTAL] = {"Portal", 102, 246, 74, ICON_PORTAL},
     [BTN_DND] = {"DND", 364, 138, 74, ICON_MOON},
     [BTN_SLEEP] = {"Sleep", 364, 246, 74, ICON_SLEEP},
-    [BTN_ABOUT] = {"About", 172, 358, 66, ICON_GEAR},
-    [BTN_UPDATE] = {"Update", 294, 358, 66, ICON_UPDATE},
+    [BTN_ABOUT] = {"About", 144, 352, 60, ICON_GEAR},
+    [BTN_EYES] = {"Eyes", 233, 372, 60, ICON_EYES},
+    [BTN_UPDATE] = {"Update", 322, 352, 60, ICON_UPDATE},
+    [BTN_EYES_PREV] = {"", 72, 236, 56, ICON_BACK},
+    [BTN_EYES_NEXT] = {"", 394, 236, 56, ICON_NEXT},
+    [BTN_EYES_STYLE] = {"Style", 318, 354, 60, ICON_SQUARE},
     [BTN_UPDATE_CHECK] = {"Check", 233, 354, 66, ICON_UPDATE},
     [BTN_UPDATE_AUTO] = {"Auto", 348, 354, 60, ICON_AUTO},
     [BTN_BACK] = {"Back", 233, 372, 68, ICON_BACK},
@@ -333,8 +347,10 @@ static const button_def_t *button_def(int id)
     static const button_def_t wifi_setup = {"Set up", 318, 354, 68, ICON_WIFI};
     static const button_def_t wizard_back = {"Back", 233, 431, 30, ICON_BACK};
     static const button_def_t update_back = {"Back", 118, 356, 60, ICON_BACK};
+    static const button_def_t eyes_back = {"Back", 148, 354, 60, ICON_BACK};
     if (s.page == PAGE_PORTAL && id == BTN_BACK && s.info.wifi_qr[0]) return &wizard_back;
     if (s.page == PAGE_UPDATE && id == BTN_BACK) return &update_back;
+    if (s.page == PAGE_EYES && id == BTN_BACK) return &eyes_back;
     if (s.page == PAGE_WIFI) {
         if (id == BTN_BACK) return s.info.wifi_qr[0] ? &wizard_back : &wifi_back;
         if (id == BTN_WIFI_SETUP) return &wifi_setup;
@@ -349,6 +365,7 @@ static bool button_on_page(int id)
     if (id == BTN_SETUP_NO || id == BTN_SETUP_YES) return false;
     if (id == BTN_WIFI_SETUP) return s.page == PAGE_WIFI && !s.info.wifi_qr[0];
     if (id == BTN_UPDATE_CHECK || id == BTN_UPDATE_AUTO) return s.page == PAGE_UPDATE;
+    if (id == BTN_EYES_PREV || id == BTN_EYES_NEXT || id == BTN_EYES_STYLE) return s.page == PAGE_EYES;
     return s.page == PAGE_MAIN ? id != BTN_BACK : id == BTN_BACK;
 }
 
@@ -415,6 +432,8 @@ static const char *page_title(page_t page)
         return "About";
     case PAGE_UPDATE:
         return "Update";
+    case PAGE_EYES:
+        return "Eyes";
     default:
         return "Settings";
     }
@@ -2046,6 +2065,26 @@ static void draw_icon(lv_layer_t *layer, settings_icon_t icon, int x, int y, lv_
         icon_line(layer, color, x - 13, y + 7, x - 13, y + 12, 3);
         icon_line(layer, color, x + 13, y + 7, x + 13, y + 12, 3);
         break;
+    case ICON_EYES: /* two round eyes */
+        icon_arc(layer, color, x - 10, y, 8, 0, 359, 3);
+        icon_arc(layer, color, x + 10, y, 8, 0, 359, 3);
+        icon_dot(layer, color, x - 10, y + 2, 3);
+        icon_dot(layer, color, x + 10, y + 2, 3);
+        break;
+    case ICON_SQUARE: /* the squircle style */
+        icon_arc(layer, color, x - 7, y - 7, 6, 180, 270, 3);
+        icon_arc(layer, color, x + 7, y - 7, 6, 270, 360, 3);
+        icon_arc(layer, color, x + 7, y + 7, 6, 0, 90, 3);
+        icon_arc(layer, color, x - 7, y + 7, 6, 90, 180, 3);
+        icon_line(layer, color, x - 7, y - 13, x + 7, y - 13, 3);
+        icon_line(layer, color, x - 7, y + 13, x + 7, y + 13, 3);
+        icon_line(layer, color, x - 13, y - 7, x - 13, y + 7, 3);
+        icon_line(layer, color, x + 13, y - 7, x + 13, y + 7, 3);
+        break;
+    case ICON_NEXT:
+        icon_line(layer, color, x - 4, y - 10, x + 6, y, 4);
+        icon_line(layer, color, x + 6, y, x - 4, y + 10, 4);
+        break;
     case ICON_AUTO: /* a clock face: it updates on its own */
         icon_arc(layer, color, x, y, 15, 0, 359, 3);
         icon_line(layer, color, x, y, x, y - 9, 3);
@@ -2210,6 +2249,7 @@ static void draw_caption(lv_layer_t *layer, int id)
 {
     const button_def_t *b = button_def(id);
     if ((s.page == PAGE_WIFI || s.page == PAGE_PORTAL) && s.info.wifi_qr[0] && id == BTN_BACK) return;
+    if (!b->caption[0]) return;
     draw_text(layer, b->caption, &fredoka_medium_22, b->cx - 72, b->cx + 72, b->cy + b->size / 2 + 13,
               LV_TEXT_ALIGN_CENTER, COLOR_TEXT, LV_OPA_COVER);
 }
@@ -2268,8 +2308,32 @@ static void draw_maker_credit(lv_layer_t *layer, int top)
     draw_glow_text(layer, "Arya Aghaei", &fredoka_medium_28, 233, top+82, 140);
 }
 
+static void draw_eyes_page(lv_layer_t *layer)
+{
+    int count = eyes_themes_count();
+    int selected = s.controls.get_eyes_theme ? s.controls.get_eyes_theme() : 0;
+    const eyes_theme_t *theme = eyes_themes_get(selected);
+    int style = s.controls.get_eyes_style ? s.controls.get_eyes_style() : 0;
+    ui_draw_eye(layer, 233 - 56, 178, 46, theme, style, false, false);
+    ui_draw_eye(layer, 233 + 56, 178, 46, theme, style, false, false);
+    draw_text(layer, eyes_themes_name(selected), &fredoka_medium_36, 70, 396, 278, LV_TEXT_ALIGN_CENTER,
+              COLOR_TEXT, LV_OPA_COVER);
+    int spacing = 22, x0 = 233 - (count - 1) * spacing / 2;
+    for (int i = 0; i < count; i++)
+    {
+        lv_color_t c = lv_color_hex(eyes_themes_get(i)->fill_bottom);
+        int x = x0 + i * spacing, r = i == selected ? 7 : 4;
+        icon_dot(layer, c, x, 318, r);
+    }
+}
+
 static void draw_info(lv_layer_t *layer)
 {
+    if (s.page == PAGE_EYES)
+    {
+        draw_eyes_page(layer);
+        return;
+    }
     const info_t *info = &s.info;
     if (s.confirm_setup) {
         draw_text(layer, "Set up Wi-Fi again?", &fredoka_medium_26, 48, 418, 178,
@@ -2767,6 +2831,7 @@ static float active_target(int id)
 {
     if (id == BTN_DND) return s.controls.get_dnd() ? 1.0f : 0.0f;
     if (id == BTN_UPDATE_AUTO) return net_ota_get_auto() ? 1.0f : 0.0f;
+    if (id == BTN_EYES_STYLE) return s.controls.get_eyes_style && s.controls.get_eyes_style() == 1 ? 1.0f : 0.0f;
     return 0.0f;
 }
 
@@ -2910,6 +2975,9 @@ static void show_page(page_t page)
     s_cache.button_valid[BTN_WIFI_SETUP] = false;
     s_cache.button_valid[BTN_UPDATE_CHECK] = false;
     s_cache.button_valid[BTN_UPDATE_AUTO] = false;
+    s_cache.button_valid[BTN_EYES_PREV] = false;
+    s_cache.button_valid[BTN_EYES_NEXT] = false;
+    s_cache.button_valid[BTN_EYES_STYLE] = false;
     build_info(page, &s.info);
     s.page_fading = s.prev != NULL;
     compose_page();
@@ -2967,6 +3035,31 @@ static void activate(int id)
         break;
     case BTN_UPDATE:
         show_page(PAGE_UPDATE);
+        break;
+    case BTN_EYES:
+        show_page(PAGE_EYES);
+        break;
+    case BTN_EYES_STYLE:
+        if (s.controls.get_eyes_style && s.controls.set_eyes_style)
+        {
+            s.controls.set_eyes_style(s.controls.get_eyes_style() == 1 ? 0 : 1);
+            s_cache.button_valid[BTN_EYES_STYLE] = false;
+            render((rect_t){0, 0, FACE_SIZE, FACE_SIZE});
+            wake();
+        }
+        break;
+    case BTN_EYES_PREV:
+    case BTN_EYES_NEXT:
+        if (s.controls.get_eyes_theme && s.controls.set_eyes_theme)
+        {
+            int count = eyes_themes_count();
+            int next = (s.controls.get_eyes_theme() + (id == BTN_EYES_NEXT ? 1 : count - 1)) % count;
+            s.controls.set_eyes_theme(next);
+            /* The arrows' cached skins sit over the page background; they must not keep an old theme. */
+            s_cache.button_valid[BTN_EYES_PREV] = false;
+            s_cache.button_valid[BTN_EYES_NEXT] = false;
+            render((rect_t){0, 0, FACE_SIZE, FACE_SIZE});
+        }
         break;
     case BTN_UPDATE_CHECK: {
         net_wifi_status_t status;

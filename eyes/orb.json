@@ -1,0 +1,440 @@
+{
+ "pack": "orb",
+ "title": "Orb",
+ "style": "orb",
+ "default_theme": "Amber",
+ "reference": {
+  "image": "design/orb-reference.svg",
+  "grid": {
+   "cols": 6,
+   "cell": [
+    256,
+    187
+   ]
+  },
+  "min_iou": 0.5
+ },
+ "fallbacks": {
+  "startled": "surprised",
+  "thinking": "curious",
+  "realization": "amazed",
+  "skeptical": "suspicious",
+  "annoyed": "relaxed",
+  "crying": "sad",
+  "disappointed": "sad",
+  "tired": "content",
+  "playful": "wink-right",
+  "glitch": "nervous",
+  "smug": "relaxed"
+ },
+ "expressions": [
+  {
+   "id": "default",
+   "label": "Default",
+   "left": {
+    "shape": "capsule",
+    "w": 0.9,
+    "h": 0.9
+   },
+   "right": "same"
+  },
+  {
+   "id": "happy",
+   "label": "Happy",
+   "left": {
+    "shape": "arch",
+    "w": 0.96,
+    "h": 1.03,
+    "dir": 1,
+    "accent": "rays"
+   },
+   "right": "same"
+  },
+  {
+   "id": "excited",
+   "label": "Excited",
+   "left": {
+    "shape": "arch",
+    "w": 0.87,
+    "h": 1.17,
+    "dir": 1,
+    "accent": "rays"
+   },
+   "right": "same"
+  },
+  {
+   "id": "pleased",
+   "label": "Pleased",
+   "left": {
+    "shape": "arch",
+    "w": 0.94,
+    "h": 1.0,
+    "dir": 1,
+    "accent": "sparkles"
+   },
+   "right": "same"
+  },
+  {
+   "id": "smile",
+   "label": "Smile",
+   "left": {
+    "shape": "arch",
+    "w": 0.94,
+    "h": 0.97,
+    "dir": 1,
+    "accent": "side_rays"
+   },
+   "right": "same"
+  },
+  {
+   "id": "big-smile",
+   "label": "Big Smile",
+   "left": {
+    "shape": "arch",
+    "w": 0.94,
+    "h": 0.99,
+    "dir": 1,
+    "accent": "rays"
+   },
+   "right": "same"
+  },
+  {
+   "id": "content",
+   "label": "Content",
+   "left": {
+    "shape": "half",
+    "w": 0.96,
+    "h": 0.85
+   },
+   "right": "same"
+  },
+  {
+   "id": "relaxed",
+   "label": "Relaxed",
+   "left": {
+    "shape": "half",
+    "w": 0.9,
+    "h": 0.85,
+    "dir": -1
+   },
+   "right": {
+    "shape": "half",
+    "w": 0.9,
+    "h": 0.85,
+    "dir": 1
+   }
+  },
+  {
+   "id": "blink",
+   "label": "Blink",
+   "left": {
+    "shape": "lens",
+    "w": 0.9,
+    "h": 0.19
+   },
+   "right": "same"
+  },
+  {
+   "id": "wink-left",
+   "label": "Wink Left",
+   "left": {
+    "shape": "arch",
+    "w": 0.97,
+    "h": 0.88,
+    "dir": 1
+   },
+   "right": {
+    "shape": "capsule",
+    "w": 0.85,
+    "h": 0.82,
+    "accent": "star"
+   }
+  },
+  {
+   "id": "wink-right",
+   "label": "Wink Right",
+   "left": {
+    "shape": "capsule",
+    "w": 0.85,
+    "h": 0.82,
+    "accent": "star"
+   },
+   "right": {
+    "shape": "arch",
+    "w": 0.97,
+    "h": 0.88,
+    "dir": 1
+   }
+  },
+  {
+   "id": "curious",
+   "label": "Curious",
+   "left": {
+    "shape": "egg",
+    "w": 0.88,
+    "h": 0.8,
+    "dir": -1
+   },
+   "right": {
+    "shape": "egg",
+    "w": 0.88,
+    "h": 0.8,
+    "dir": 1,
+    "accent": "question"
+   }
+  },
+  {
+   "id": "surprised",
+   "label": "Surprised",
+   "left": {
+    "shape": "oval",
+    "w": 0.7,
+    "h": 0.94,
+    "accent": "top_rays"
+   },
+   "right": {
+    "shape": "oval",
+    "w": 0.7,
+    "h": 0.94
+   }
+  },
+  {
+   "id": "amazed",
+   "label": "Amazed",
+   "left": {
+    "shape": "capsule",
+    "w": 0.85,
+    "h": 0.84,
+    "accent": "sparkles"
+   },
+   "right": "same"
+  },
+  {
+   "id": "love",
+   "label": "Love",
+   "left": {
+    "shape": "heart",
+    "w": 0.8,
+    "h": 0.8,
+    "accent": "hearts"
+   },
+   "right": "same"
+  },
+  {
+   "id": "blushing",
+   "label": "Blushing",
+   "left": {
+    "shape": "capsule",
+    "w": 0.85,
+    "h": 0.85,
+    "accent": "blush"
+   },
+   "right": "same"
+  },
+  {
+   "id": "shy",
+   "label": "Shy",
+   "left": {
+    "shape": "arch",
+    "w": 0.94,
+    "h": 1.04,
+    "dir": 1,
+    "accent": "blush"
+   },
+   "right": "same"
+  },
+  {
+   "id": "nervous",
+   "label": "Nervous",
+   "left": {
+    "shape": "capsule",
+    "w": 0.85,
+    "h": 0.85
+   },
+   "right": {
+    "shape": "capsule",
+    "w": 0.85,
+    "h": 0.85,
+    "accent": "nervous"
+   }
+  },
+  {
+   "id": "angry",
+   "label": "Angry",
+   "left": {
+    "shape": "slope",
+    "w": 0.9,
+    "h": 0.99,
+    "dir": 1
+   },
+   "right": {
+    "shape": "slope",
+    "w": 0.9,
+    "h": 0.99,
+    "dir": -1
+   }
+  },
+  {
+   "id": "determined",
+   "label": "Determined",
+   "left": {
+    "shape": "slope",
+    "w": 0.89,
+    "h": 0.91,
+    "dir": 1,
+    "accent": "rays"
+   },
+   "right": {
+    "shape": "slope",
+    "w": 0.89,
+    "h": 0.91,
+    "dir": -1,
+    "accent": "rays"
+   }
+  },
+  {
+   "id": "suspicious",
+   "label": "Suspicious",
+   "left": {
+    "shape": "slope",
+    "w": 0.85,
+    "h": 0.88,
+    "dir": 1
+   },
+   "right": {
+    "shape": "slope",
+    "w": 0.85,
+    "h": 0.88,
+    "dir": -1
+   }
+  },
+  {
+   "id": "sad",
+   "label": "Sad",
+   "left": {
+    "shape": "arch",
+    "w": 1.0,
+    "h": 0.98,
+    "dir": 2
+   },
+   "right": "same"
+  },
+  {
+   "id": "worried",
+   "label": "Worried",
+   "left": {
+    "shape": "worried",
+    "w": 1.04,
+    "h": 1.25
+   },
+   "right": {
+    "shape": "worried",
+    "w": 1.04,
+    "h": 1.25,
+    "accent": "drop"
+   }
+  },
+  {
+   "id": "confused",
+   "label": "Confused",
+   "left": {
+    "shape": "worried",
+    "w": 1.04,
+    "h": 1.25
+   },
+   "right": {
+    "shape": "worried",
+    "w": 1.04,
+    "h": 1.25,
+    "accent": "question"
+   }
+  },
+  {
+   "id": "sleeping",
+   "label": "Sleeping",
+   "left": {
+    "shape": "sleep",
+    "w": 0.9,
+    "h": 0.5
+   },
+   "right": "same"
+  },
+  {
+   "id": "sleeping-zzz",
+   "label": "Sleeping Zzz",
+   "left": {
+    "shape": "sleep",
+    "w": 0.9,
+    "h": 0.5
+   },
+   "right": {
+    "shape": "sleep",
+    "w": 0.9,
+    "h": 0.5,
+    "accent": "zzz"
+   }
+  },
+  {
+   "id": "dreamy",
+   "label": "Dreamy",
+   "left": {
+    "shape": "capsule",
+    "w": 0.83,
+    "h": 0.8,
+    "accent": "clouds"
+   },
+   "right": "same"
+  },
+  {
+   "id": "hypnotized",
+   "label": "Hypnotized",
+   "left": {
+    "shape": "spiral",
+    "w": 0.91,
+    "h": 0.95,
+    "dir": 1
+   },
+   "right": {
+    "shape": "spiral",
+    "w": 0.91,
+    "h": 0.95,
+    "dir": -1
+   }
+  },
+  {
+   "id": "focused",
+   "label": "Focused",
+   "left": {
+    "shape": "slope",
+    "w": 0.99,
+    "h": 0.89,
+    "dir": 1
+   },
+   "right": {
+    "shape": "slope",
+    "w": 0.99,
+    "h": 0.89,
+    "dir": -1,
+    "accent": "star"
+   }
+  },
+  {
+   "id": "laugh",
+   "label": "Laugh",
+   "left": {
+    "shape": "chevron",
+    "w": 0.52,
+    "h": 0.68,
+    "dir": 1,
+    "accent": "side_rays"
+   },
+   "right": {
+    "shape": "chevron",
+    "w": 0.52,
+    "h": 0.68,
+    "dir": -1,
+    "accent": "side_rays"
+   }
+  }
+ ]
+}

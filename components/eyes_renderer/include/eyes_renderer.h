@@ -28,6 +28,9 @@ typedef struct {
     uint8_t (*get_expression)(void);
 } eyes_renderer_api_t;
 
+/** Repaints the eyes that are on screen after eyes_themes_select(). Needs the display lock. */
+void eyes_renderer_refresh_theme(void);
+
 /** Built-in procedural "arix glow" eyes, registered as the default MVP style. */
 const eyes_renderer_api_t *eyes_renderer_get_default(void);
 

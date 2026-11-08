@@ -52,6 +52,11 @@ void eyes_panel_join(void)
 {
 }
 
+bool eyes_panel_try_join(void)
+{
+    return true;
+}
+
 const uint16_t *panel_host_fb(void)
 {
     return s_fb;

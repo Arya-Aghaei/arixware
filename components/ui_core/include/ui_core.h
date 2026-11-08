@@ -38,6 +38,17 @@ typedef enum {
     UI_EXPRESSION_HYPNOTIZED = EYES_EXPRESSION_HYPNOTIZED,
     UI_EXPRESSION_FOCUSED = EYES_EXPRESSION_FOCUSED,
     UI_EXPRESSION_LAUGH = EYES_EXPRESSION_LAUGH,
+    UI_EXPRESSION_STARTLED = EYES_EXPRESSION_STARTLED,
+    UI_EXPRESSION_THINKING = EYES_EXPRESSION_THINKING,
+    UI_EXPRESSION_REALIZATION = EYES_EXPRESSION_REALIZATION,
+    UI_EXPRESSION_SKEPTICAL = EYES_EXPRESSION_SKEPTICAL,
+    UI_EXPRESSION_ANNOYED = EYES_EXPRESSION_ANNOYED,
+    UI_EXPRESSION_CRYING = EYES_EXPRESSION_CRYING,
+    UI_EXPRESSION_DISAPPOINTED = EYES_EXPRESSION_DISAPPOINTED,
+    UI_EXPRESSION_TIRED = EYES_EXPRESSION_TIRED,
+    UI_EXPRESSION_PLAYFUL = EYES_EXPRESSION_PLAYFUL,
+    UI_EXPRESSION_GLITCH = EYES_EXPRESSION_GLITCH,
+    UI_EXPRESSION_SMUG = EYES_EXPRESSION_SMUG,
     UI_EXPRESSION_COUNT = EYES_EXPRESSION_COUNT,
 } ui_expression_t;
 
@@ -51,6 +62,10 @@ typedef struct {
     void (*set_dnd)(bool enabled);
     void (*sleep)(void);
     void (*wake)(void); /* optional: turn the display back on */
+    int (*get_eyes_theme)(void);       /* optional: index into eyes_themes_*() */
+    void (*set_eyes_theme)(int index); /* optional: apply and save */
+    int (*get_eyes_style)(void);       /* optional: 0 orb, 1 squircle */
+    void (*set_eyes_style)(int index); /* optional: apply and save */
 } ui_settings_controls_t;
 
 /** Configure hardware controls before settings can be opened. Copies the callbacks. */
