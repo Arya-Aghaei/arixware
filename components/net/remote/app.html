@@ -98,6 +98,13 @@
     <p id="timer-note" class="note"></p>
   </section>
 
+  <section>
+    <h2>Firmware</h2>
+    <div class="row"><span id="fw-version" class="note"></span><button id="fw-update">Check for update</button></div>
+    <div class="row"><button id="fw-auto">Auto update</button></div>
+    <p id="fw-note" class="note"></p>
+  </section>
+
   <section id="install-box">
     <h2>Home screen</h2>
     <button id="install" class="primary" style="width:100%">Add to home screen</button>
@@ -187,6 +194,18 @@ function render(s) {
   $('timer-note').textContent = t.state === 0 ? '' : TIMER_STATES[t.state] +
     (t.state < 3 ? ` - ${Math.floor(t.remaining / 60)}:${String(t.remaining % 60).padStart(2, '0')} left` : '');
   if (s.mood >= 0) showMood(s.mood);
+  const u = s.update, busy = u.state === 'checking' || u.state === 'installing' || u.state === 'done';
+  $('fw-version').textContent = 'Version ' + u.version;
+  $('fw-update').disabled = busy;
+  $('fw-auto').classList.toggle('on', u.auto);
+  $('fw-auto').textContent = u.auto ? 'Auto update on' : 'Auto update off';
+  $('fw-note').textContent = {
+    checking: 'Checking for an update...',
+    installing: `Installing ${u.latest}: ${u.progress}%. Do not unplug the arix.`,
+    done: `Installed ${u.latest}. The arix is restarting.`,
+    current: 'You have the newest firmware.',
+    failed: 'Update failed: ' + u.error,
+  }[u.state] || '';
 }
 
 async function refresh() {
@@ -253,6 +272,8 @@ const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform
 if (standalone) $('install-box').hidden = true;
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
 addEventListener('appinstalled', () => { $('install-box').hidden = true; toast('Installed'); });
+$('fw-update').onclick = () => send({ update: true });
+$('fw-auto').onclick = () => send({ autoUpdate: !(state && state.update.auto) });
 $('install').onclick = async () => {
   if (installPrompt) {
     installPrompt.prompt();

@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "ui_core.c" "ui_panel.c" "ui_screen_welcome.c" "ui_splash_asset.c" "ui_screen_eyes.c" "ui_screen_clock.c" "ui_screen_timer.c" "ui_screen_alarm.c" "ui_screen_quote.c" "ui_tools.c" "ui_draw.c" "ui_screen_settings.c"
+    SRCS "ui_core.c" "ui_panel.c" "ui_screen_welcome.c" "ui_splash_asset.c" "ui_screen_eyes.c" "ui_screen_clock.c" "ui_screen_timer.c" "ui_screen_alarm.c" "ui_screen_quote.c" "ui_tools.c" "ui_draw.c" "ui_screen_settings.c" "ui_screen_update.c"
     INCLUDE_DIRS "include"
     REQUIRES lvgl eyes_renderer
     PRIV_REQUIRES audio ui_orient heap images fonts net nvs_flash esp_app_format esp_mmap_assets

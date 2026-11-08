@@ -33,3 +33,4 @@ __pycache__/
 
 # Private source material excluded from public snapshots
 /private/
+docs/flasher/firmware.bin

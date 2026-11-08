@@ -28,6 +28,8 @@ typedef struct {
     } timer;
 } net_remote_state_t;
 
+/* Firmware update state is read from net_ota; the command {"update": true} starts it. */
+
 /* Implemented by the application, which owns the UI lock. Called from the HTTP task. */
 typedef struct {
     void (*get_state)(net_remote_state_t *state);

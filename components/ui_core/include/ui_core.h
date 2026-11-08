@@ -80,6 +80,15 @@ void ui_core_remote_mood(int expression);
 /** The mood being shown (or about to be, after a remote request); -1 when the eyes are not on screen. */
 int ui_core_get_expression(void);
 
+/** Firmware update screen (call with the display lock held). It replaces whatever is showing,
+ *  wakes the display, and ignores swipes until ui_core_update_fail() returns to the eyes. */
+void ui_core_update_begin(const char *version);
+void ui_core_update_progress(int percent);
+/** Shows the reason for a few seconds, then goes back to the eyes. */
+void ui_core_update_fail(const char *reason);
+/** Installed: shows the restart notice. The screen stays up until the device reboots. */
+void ui_core_update_done(void);
+
 /** Pause/resume eye animation for display standby (screen off/on). */
 void ui_core_set_standby(bool standby);
 

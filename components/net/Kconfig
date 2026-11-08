@@ -1,0 +1,15 @@
+menu "Arixware OTA"
+
+config NET_OTA_REPO
+    string "GitHub repository with firmware releases (owner/name)"
+    default "Arya-Aghaei/arixware"
+    help
+        The latest release of this public repository is checked for an
+        asset named arixware-ota.bin. Its tag (for example v1.2.0) is
+        compared with the running firmware version.
+
+config NET_OTA_ASSET
+    string "Release asset holding the app image"
+    default "arixware-ota.bin"
+
+endmenu

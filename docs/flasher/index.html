@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>Arixware Flasher</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
+  <script type="module" src="https://unpkg.com/esp-web-tools@10.1.1/dist/web/install-button.js?module"></script>
+  <style>
+    :root { --text:#FFF4DF; --soft:#FFD49B; --amber:#FF9347; --dim:#8a6a47; --panel:#16100a; --line:#33200f; }
+    * { box-sizing:border-box; }
+    html { background:#000; }
+    body { margin:0; color:var(--text); font:16px/1.45 "Fredoka", ui-rounded, system-ui, sans-serif;
+           padding:max(14px, env(safe-area-inset-top)) 14px 40px; max-width:560px; margin-inline:auto; min-height:100vh;
+           background:radial-gradient(120% 60% at 50% 0%, #2a1707 0%, #000 62%) no-repeat; }
+    .hero { border-radius:28px; padding:20px 12px 18px; margin-bottom:14px; background:#000;
+            border:1px solid var(--line); box-shadow:0 10px 40px #ff93471a; text-align:center; }
+    .hero img { display:block; width:78%; max-width:330px; height:auto; margin:0 auto 6px; }
+    h1 { margin:0; font-size:22px; font-weight:600; color:var(--soft); letter-spacing:.02em; }
+    section { background:var(--panel); border:1px solid var(--line); border-radius:22px; padding:16px; margin:12px 0; }
+    h2 { font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); margin:0 0 12px; font-weight:600; }
+    ol { margin:0; padding-left:1.2em; color:var(--soft); }
+    li { margin:6px 0; }
+    .go { display:flex; justify-content:center; padding:6px 0 2px; }
+    esp-web-install-button { --esp-tools-button-color:#FF9347; --esp-tools-button-text-color:#1c1208;
+                             --esp-tools-button-border-radius:16px; font-family:inherit; }
+    button.primary { font:inherit; font-weight:600; color:#1c1208; background:#FF9347; border:2px solid #FF9347;
+                     border-radius:16px; padding:12px 26px; cursor:pointer; box-shadow:0 0 24px #ff934755; }
+    button.primary:active { transform:scale(.97); }
+    .note { color:var(--dim); font-size:13px; margin:10px 0 0; }
+    .warn { color:var(--soft); }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <img src="eyes.png" alt="Arixware buddy" width="420" height="198">
+    <h1>Arixware Flasher</h1>
+  </div>
+
+  <section>
+    <h2>Install firmware</h2>
+    <ol>
+      <li>Plug the arix into this computer with USB.</li>
+      <li>Press the button and pick its serial port.</li>
+      <li>Wait until it restarts. Do not unplug it.</li>
+    </ol>
+    <div class="go">
+      <esp-web-install-button manifest="manifest.json">
+        <button slot="activate" class="primary">Flash firmware</button>
+        <span slot="unsupported">Use desktop Chrome, Edge or Opera. This browser has no Web Serial.</span>
+        <span slot="not-allowed">Web Serial needs HTTPS.</span>
+      </esp-web-install-button>
+    </div>
+    <p class="note warn">A USB flash erases the whole device, including saved settings and Wi-Fi.</p>
+    <p class="note">If the port does not show up, hold BOOT while plugging in the USB cable. Later updates can install over Wi-Fi from the phone remote.</p>
+  </section>
+</body>
+</html>

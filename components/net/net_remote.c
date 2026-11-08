@@ -1,4 +1,5 @@
 #include "net_remote.h"
+#include "net_ota.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -176,6 +177,16 @@ static cJSON *state_json(void)
     cJSON_AddNumberToObject(timer, "state", st.timer.state);
     cJSON_AddNumberToObject(timer, "remaining", st.timer.remaining_s);
     cJSON_AddNumberToObject(timer, "total", st.timer.total_s);
+    static const char *const ota_names[] = { "idle", "checking", "current", "installing", "done", "failed" };
+    net_ota_status_t ota;
+    net_ota_get_status(&ota);
+    cJSON *update = cJSON_AddObjectToObject(root, "update");
+    cJSON_AddStringToObject(update, "version", net_ota_running_version());
+    cJSON_AddStringToObject(update, "state", ota_names[ota.state]);
+    cJSON_AddNumberToObject(update, "progress", ota.progress);
+    cJSON_AddStringToObject(update, "latest", ota.latest);
+    cJSON_AddStringToObject(update, "error", ota.error);
+    cJSON_AddBoolToObject(update, "auto", net_ota_get_auto());
     return root;
 }
 
@@ -260,6 +271,13 @@ static esp_err_t command_handler(httpd_req_t *req)
         } else if (cJSON_IsFalse(sleep) && s_ops.wake) {
             s_ops.wake();
         }
+    }
+    if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(root, "update"))) {
+        net_ota_start();
+    }
+    const cJSON *auto_update = cJSON_GetObjectItemCaseSensitive(root, "autoUpdate");
+    if (cJSON_IsBool(auto_update)) {
+        net_ota_set_auto(cJSON_IsTrue(auto_update));
     }
     cJSON_Delete(root);
     return send_json(req, state_json());

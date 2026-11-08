@@ -7,11 +7,13 @@
 #include "ui_screen_quote.h"
 #include "ui_tools.h"
 #include "ui_screen_settings.h"
+#include "ui_screen_update.h"
 #include "ui_panel.h"
 #include "ui_orient.h"
 #include "eyes_renderer.h"
 #include "lvgl.h"
 #include <stdint.h>
+#include <stdio.h>
 
 #define UI_CORE_TRANSITION_MS 400
 #define SETTINGS_OPEN_MS 320
@@ -42,6 +44,10 @@ static bool s_settings_open;
 static bool s_top_edge_press;
 static bool s_left_edge_press;
 static bool s_standby;
+static bool s_updating;
+static lv_obj_t *s_update_screen;
+static char s_update_version[32];
+
 static ui_settings_controls_t s_settings_controls;
 
 static void gesture_event_cb(lv_event_t *e);
@@ -137,6 +143,10 @@ static void load_screen(int index)
 
 static void switch_screen_async(void *target)
 {
+    if (s_updating) {
+        s_switching = false;
+        return;
+    }
     load_screen((int)(intptr_t)target);
 }
 
@@ -290,7 +300,7 @@ static void tools_show_cb(ui_tools_screen_t screen)
     if (s_settings_controls.wake) {
         s_settings_controls.wake(); /* an alarm must be seen even if the screen was off */
     }
-    if (s_settings_open || s_switching || s_screen_index == target) {
+    if (s_updating || s_settings_open || s_switching || s_screen_index == target) {
         return;
     }
     s_switching = true;
@@ -325,6 +335,9 @@ void ui_core_remote_mood(int expression)
 {
     static lv_timer_t *timer;
     if (expression < 0 || expression >= UI_EXPRESSION_COUNT) {
+        return;
+    }
+    if (s_updating) {
         return;
     }
     s_pending_mood = expression;
@@ -401,6 +414,72 @@ void ui_core_set_expression(ui_expression_t expression)
 {
     if (s_active_eyes_api && s_active_eyes_api->set_expression) {
         s_active_eyes_api->set_expression((uint8_t)expression);
+    }
+}
+
+static void update_leave_cb(lv_timer_t *timer)
+{
+    lv_timer_delete(timer);
+    s_updating = false;
+    s_update_screen = NULL;
+    load_screen(0);
+}
+
+static void update_show_async(void *arg)
+{
+    (void)arg;
+    if (ui_panel_fade_active()) {
+        lv_async_call(update_show_async, NULL);
+        return;
+    }
+    /* The eyes and the settings shade draw straight to the panel; release them first. */
+    if (s_active_eyes_api) {
+        s_active_eyes_api->destroy();
+        s_active_eyes_api = NULL;
+    }
+    if (s_settings_open) {
+        ui_screen_settings_freeze();
+        s_settings_open = false;
+    }
+    s_update_screen = ui_screen_update_create(s_update_version);
+    lv_screen_load_anim(s_update_screen, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+    s_switching = false;
+}
+
+void ui_core_update_begin(const char *version)
+{
+    if (s_updating) {
+        return;
+    }
+    s_updating = true;
+    s_switching = true;
+    snprintf(s_update_version, sizeof(s_update_version), "%s", version ? version : "");
+    if (s_standby && s_settings_controls.wake) {
+        s_settings_controls.wake();
+    }
+    lv_async_call(update_show_async, NULL);
+}
+
+void ui_core_update_progress(int percent)
+{
+    if (s_updating && s_update_screen) {
+        ui_screen_update_set_progress(percent);
+    }
+}
+
+void ui_core_update_fail(const char *reason)
+{
+    if (!s_updating) {
+        return;
+    }
+    ui_screen_update_set_failed(reason);
+    lv_timer_create(update_leave_cb, 4000, NULL);
+}
+
+void ui_core_update_done(void)
+{
+    if (s_updating) {
+        ui_screen_update_set_done();
     }
 }
 

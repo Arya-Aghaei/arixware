@@ -5,6 +5,7 @@
 #include "fonts.h"
 #include "net_wifi.h"
 #include "net_remote.h"
+#include "net_ota.h"
 #include "net_timezone.h"
 #include "src/libs/qrcode/qrcodegen.h"
 #include "images.h"
@@ -71,6 +72,8 @@ typedef enum
     ICON_BACK,
     ICON_SUN,
     ICON_VOLUME,
+    ICON_UPDATE,
+    ICON_AUTO,
 } settings_icon_t;
 
 typedef enum
@@ -79,6 +82,7 @@ typedef enum
     PAGE_WIFI,
     PAGE_PORTAL,
     PAGE_ABOUT,
+    PAGE_UPDATE,
 } page_t;
 
 typedef enum
@@ -88,6 +92,9 @@ typedef enum
     BTN_DND,
     BTN_SLEEP,
     BTN_ABOUT,
+    BTN_UPDATE,
+    BTN_UPDATE_CHECK,
+    BTN_UPDATE_AUTO,
     BTN_BACK,
     BTN_WIFI_SETUP,
     BTN_SETUP_NO,
@@ -107,7 +114,10 @@ static const button_def_t BUTTONS[BTN_COUNT] = {
     [BTN_PORTAL] = {"Portal", 102, 246, 74, ICON_PORTAL},
     [BTN_DND] = {"DND", 364, 138, 74, ICON_MOON},
     [BTN_SLEEP] = {"Sleep", 364, 246, 74, ICON_SLEEP},
-    [BTN_ABOUT] = {"About", 233, 356, 70, ICON_GEAR},
+    [BTN_ABOUT] = {"About", 172, 358, 66, ICON_GEAR},
+    [BTN_UPDATE] = {"Update", 294, 358, 66, ICON_UPDATE},
+    [BTN_UPDATE_CHECK] = {"Check", 233, 354, 66, ICON_UPDATE},
+    [BTN_UPDATE_AUTO] = {"Auto", 348, 354, 60, ICON_AUTO},
     [BTN_BACK] = {"Back", 233, 372, 68, ICON_BACK},
     [BTN_WIFI_SETUP] = {"Set up", 233, 284, 60, ICON_WIFI},
     [BTN_SETUP_NO] = {"No", 148, 344, 68, ICON_BACK},
@@ -322,7 +332,9 @@ static const button_def_t *button_def(int id)
     static const button_def_t wifi_back = {"Back", 148, 354, 68, ICON_BACK};
     static const button_def_t wifi_setup = {"Set up", 318, 354, 68, ICON_WIFI};
     static const button_def_t wizard_back = {"Back", 233, 431, 30, ICON_BACK};
+    static const button_def_t update_back = {"Back", 118, 356, 60, ICON_BACK};
     if (s.page == PAGE_PORTAL && id == BTN_BACK && s.info.wifi_qr[0]) return &wizard_back;
+    if (s.page == PAGE_UPDATE && id == BTN_BACK) return &update_back;
     if (s.page == PAGE_WIFI) {
         if (id == BTN_BACK) return s.info.wifi_qr[0] ? &wizard_back : &wifi_back;
         if (id == BTN_WIFI_SETUP) return &wifi_setup;
@@ -336,6 +348,7 @@ static bool button_on_page(int id)
     if (s.confirm_setup) return id == BTN_SETUP_NO || id == BTN_SETUP_YES;
     if (id == BTN_SETUP_NO || id == BTN_SETUP_YES) return false;
     if (id == BTN_WIFI_SETUP) return s.page == PAGE_WIFI && !s.info.wifi_qr[0];
+    if (id == BTN_UPDATE_CHECK || id == BTN_UPDATE_AUTO) return s.page == PAGE_UPDATE;
     return s.page == PAGE_MAIN ? id != BTN_BACK : id == BTN_BACK;
 }
 
@@ -400,6 +413,8 @@ static const char *page_title(page_t page)
         return "Portal";
     case PAGE_ABOUT:
         return "About";
+    case PAGE_UPDATE:
+        return "Update";
     default:
         return "Settings";
     }
@@ -520,6 +535,25 @@ static void build_info(page_t page, info_t *info)
         add_row(info, "Remote code", remote_code);
         snprintf(info->note, sizeof(info->note),
                  "Swipe down from the top edge to open settings. Scroll for details; tap Back to return.");
+        break;
+    }
+    case PAGE_UPDATE:
+    {
+        net_ota_status_t ota;
+        net_ota_get_status(&ota);
+        add_row(info, "Version", firmware_version());
+        add_row(info, "Latest", ota.latest[0] ? ota.latest : "Not checked");
+        switch (ota.state)
+        {
+        case NET_OTA_CHECKING: snprintf(text, sizeof(text), "Checking..."); break;
+        case NET_OTA_CURRENT: snprintf(text, sizeof(text), "Up to date"); break;
+        case NET_OTA_INSTALLING: snprintf(text, sizeof(text), "Installing %d%%", ota.progress); break;
+        case NET_OTA_DONE: snprintf(text, sizeof(text), "Restarting"); break;
+        case NET_OTA_FAILED: snprintf(text, sizeof(text), "%.40s", ota.error[0] ? ota.error : "Failed"); break;
+        default: snprintf(text, sizeof(text), wifi.state == NET_WIFI_CONNECTED ? "Ready" : "No Wi-Fi"); break;
+        }
+        add_row(info, "Status", text);
+        add_row(info, "Auto update", net_ota_get_auto() ? "On" : "Off");
         break;
     }
     default:
@@ -2004,6 +2038,19 @@ static void draw_icon(lv_layer_t *layer, settings_icon_t icon, int x, int y, lv_
         }
         break;
     }
+    case ICON_UPDATE: /* an arrow dropping into a tray */
+        icon_line(layer, color, x, y - 13, x, y + 5, 4);
+        icon_line(layer, color, x - 8, y - 2, x, y + 7, 4);
+        icon_line(layer, color, x + 8, y - 2, x, y + 7, 4);
+        icon_line(layer, color, x - 13, y + 12, x + 13, y + 12, 4);
+        icon_line(layer, color, x - 13, y + 7, x - 13, y + 12, 3);
+        icon_line(layer, color, x + 13, y + 7, x + 13, y + 12, 3);
+        break;
+    case ICON_AUTO: /* a clock face: it updates on its own */
+        icon_arc(layer, color, x, y, 15, 0, 359, 3);
+        icon_line(layer, color, x, y, x, y - 9, 3);
+        icon_line(layer, color, x, y, x + 7, y + 4, 3);
+        break;
     case ICON_VOLUME:
         icon_line(layer, color, x - 11, y - 4, x - 11, y + 4, 6);
         icon_line(layer, color, x - 7, y - 4, x - 2, y - 9, 4);
@@ -2700,7 +2747,7 @@ static void approach(float *value, float target, float dt, float tau)
 
 static bool page_has_live_info(void)
 {
-    return s.page == PAGE_WIFI || s.page == PAGE_PORTAL || s.page == PAGE_ABOUT;
+    return s.page == PAGE_WIFI || s.page == PAGE_PORTAL || s.page == PAGE_ABOUT || s.page == PAGE_UPDATE;
 }
 
 static void apply_slider(int i, bool commit)
@@ -2714,6 +2761,13 @@ static void apply_slider(int i, bool commit)
         s.controls.set_volume(s.value[1], commit);
     }
     s.applied[i] = s.value[i];
+}
+
+static float active_target(int id)
+{
+    if (id == BTN_DND) return s.controls.get_dnd() ? 1.0f : 0.0f;
+    if (id == BTN_UPDATE_AUTO) return net_ota_get_auto() ? 1.0f : 0.0f;
+    return 0.0f;
 }
 
 static void frame_timer_cb(lv_timer_t *timer)
@@ -2763,12 +2817,12 @@ static void frame_timer_cb(lv_timer_t *timer)
         bool held = (s.pressed == id && !s.press_cancelled) || lv_tick_elaps(s.tap_until[id]) > 0x7FFFFFFF;
         float press = s.press[id], active = s.active[id];
         approach(&s.press[id], held ? 1.0f : 0.0f, dt, held ? 0.035f : 0.09f);
-        approach(&s.active[id], id == BTN_DND && s.controls.get_dnd() ? 1.0f : 0.0f, dt, 0.08f);
+        approach(&s.active[id], active_target(id), dt, 0.08f);
         if (s.press[id] != press || s.active[id] != active)
         {
             render_button(id);
         }
-        busy |= held || s.press[id] > 0.0f || s.active[id] != (id == BTN_DND && s.controls.get_dnd() ? 1.0f : 0.0f);
+        busy |= held || s.press[id] > 0.0f || s.active[id] != active_target(id);
     }
     flush_dirty();
     if (!busy && s.drag < 0 && s.pressed < 0)
@@ -2849,11 +2903,13 @@ static void show_page(page_t page)
     memset(s.tap_until, 0, sizeof(s.tap_until));
     for (int id = 0; id < BTN_COUNT; id++)
     {
-        s.active[id] = id == BTN_DND && s.controls.get_dnd() ? 1.0f : 0.0f;
+        s.active[id] = active_target(id);
     }
     s.dirty_count = 0;
     s_cache.button_valid[BTN_BACK] = false; /* geometry and surrounding page can change */
     s_cache.button_valid[BTN_WIFI_SETUP] = false;
+    s_cache.button_valid[BTN_UPDATE_CHECK] = false;
+    s_cache.button_valid[BTN_UPDATE_AUTO] = false;
     build_info(page, &s.info);
     s.page_fading = s.prev != NULL;
     compose_page();
@@ -2908,6 +2964,19 @@ static void activate(int id)
         break;
     case BTN_ABOUT:
         show_page(PAGE_ABOUT);
+        break;
+    case BTN_UPDATE:
+        show_page(PAGE_UPDATE);
+        break;
+    case BTN_UPDATE_CHECK: {
+        net_wifi_status_t status;
+        net_wifi_get_status(&status);
+        if (status.state == NET_WIFI_CONNECTED) net_ota_start(); /* progress shows in the rows */
+        break;
+    }
+    case BTN_UPDATE_AUTO:
+        net_ota_set_auto(!net_ota_get_auto());
+        wake();
         break;
     case BTN_BACK:
         show_page(PAGE_MAIN);

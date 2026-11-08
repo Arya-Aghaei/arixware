@@ -4,6 +4,7 @@
 #include "ui_core.h"
 #include "net_wifi.h"
 #include "net_http.h"
+#include "net_ota.h"
 #include "motion.h"
 #include "audio.h"
 #include "mmap_generate_sounds.h"
@@ -58,4 +59,5 @@ void app_main(void)
     /* Non-blocking: Wi-Fi connect time must never delay the boot animation. */
     net_wifi_init();
     net_http_start();
+    net_ota_init();
 }

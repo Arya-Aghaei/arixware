@@ -2,6 +2,7 @@
 #include "ui_core.h"
 #include "ui_tools.h"
 #include "net_remote.h"
+#include "net_ota.h"
 #include "audio.h"
 #include "bsp/esp-bsp.h"
 #include "nvs.h"
@@ -175,6 +176,45 @@ static void remote_sleep(void)
     bsp_display_unlock();
 }
 
+/* ---- Firmware update screen (see net_ota.h). Called from the update task. */
+
+static void ota_begin(const char *version)
+{
+    bsp_display_lock(-1);
+    ui_core_update_begin(version);
+    bsp_display_unlock();
+}
+
+static void ota_progress(int percent)
+{
+    bsp_display_lock(-1);
+    ui_core_update_progress(percent);
+    bsp_display_unlock();
+}
+
+static void ota_failed(const char *reason)
+{
+    bsp_display_lock(-1);
+    ui_core_update_fail(reason);
+    bsp_display_unlock();
+}
+
+static void ota_done(void)
+{
+    bsp_display_lock(-1);
+    ui_core_update_done();
+    bsp_display_unlock();
+}
+
+/* Do not install on its own while an alarm rings or a timer counts down. */
+static bool ota_busy(void)
+{
+    bsp_display_lock(-1);
+    bool busy = ui_alarm_state() == UI_ALARM_RINGING || ui_timer_state() != UI_TIMER_IDLE;
+    bsp_display_unlock();
+    return busy;
+}
+
 void settings_init(void)
 {
     s_brightness = bsp_display_brightness_get();
@@ -220,4 +260,12 @@ void settings_init(void)
         .wake = remote_wake,
     };
     net_remote_set_ops(&remote);
+    const net_ota_ops_t ota = {
+        .begin = ota_begin,
+        .progress = ota_progress,
+        .failed = ota_failed,
+        .done = ota_done,
+        .busy = ota_busy,
+    };
+    net_ota_set_ops(&ota);
 }
